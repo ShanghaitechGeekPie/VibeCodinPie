@@ -335,4 +335,43 @@ $: note("c2 ~ c2 ~")
   .lpf(200)
   ._scope({smear:0.7})`,
   },
+  {
+    name: '⚡️ User Test Music',
+    description: '复杂音轨测试与交互 Slider 展示',
+    code: `// ⚡️ User Test Music
+setcpm(138/4)
+
+// 我们现在有了 UI Sliders!
+const drive = slider(0.2, 0, 1)
+const bassCutoff = slider(800, 200, 5000)
+
+// 🥁 鼓组部分
+$kick: s("bd:1!4")
+  .duck(2).duckattack(.05).duckdepth(.6)
+  .compressor("-16:4:4:.04.1").distort(drive).postgain(1.2)
+  ._scope()
+
+$chh: s("hh:1!4")
+  .velocity(".2 .3 .8 .7")
+  .fast(4)
+  ._punchcard()
+
+$ohh: s("oh:2!4")
+  .velocity("0 0 1 0")
+  .fast(4).decay(.3)
+  ._punchcard()
+
+// 🔉 低音部分 (受 Slider 控制)
+$bass: note("~ g1 g2 g1")
+  .s("square")
+  .fast(8).decay(.1).orbit(2)
+  .cutoff(bassCutoff)
+  ._pianoroll()
+
+// 🎹 旋律部分
+$lead: note("<g3 d4 <f4 c4 f4 c4 g4 ~>>")
+  .s("supersaw").detune(.5).gain(0.6)
+  .fast(16).release(.04).orbit(2)
+  ._pianoroll()`,
+  },
 ];

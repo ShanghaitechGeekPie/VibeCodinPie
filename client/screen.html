@@ -303,6 +303,41 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+
+    /* ── Interactive Sliders ── */
+    #slider-container {
+      display: none; flex-direction: column; gap: 8px;
+      padding: 12px;
+      background: var(--md-sys-color-surface-container-low);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      max-height: 200px; overflow-y: auto;
+    }
+    .slider-row {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .slider-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      min-width: 100px; color: var(--md-sys-color-on-surface-variant);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .slider-input {
+      flex: 1; accent-color: var(--md-sys-color-primary); height: 4px;
+      -webkit-appearance: none; appearance: none;
+      background: var(--md-sys-color-outline-variant);
+      border-radius: var(--md-sys-shape-corner-full);
+      outline: none;
+    }
+    .slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 12px; height: 12px;
+      background: var(--md-sys-color-primary); border-radius: 50%;
+      cursor: pointer; transition: transform 0.1s;
+    }
+    .slider-input::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    .slider-value {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      min-width: 45px; text-align: right; color: var(--md-sys-color-primary);
+    }
+
     #sidebar {
       width: 180px; padding: 12px;
       display: flex; flex-direction: column;
@@ -444,6 +479,7 @@
           </button>
           <span id="editor-hint">Ctrl+Enter 运行</span>
         </div>
+        <div id="slider-container"></div>
         <canvas id="scope-canvas"></canvas>
       </div>
       <div id="sidebar">
@@ -624,12 +660,78 @@
       ));
     };
 
-    // ── slider / sliderWithID stubs ──
+    // ── slider / sliderWithID integration ──
+    window._sliderValues = {}; // Persistent slider state
+    window._currentSliders = []; // Sliders present in current code
+
+    window.sliderWithID = function(id, value, min, max, step) {
+      if (!(id in window._sliderValues)) {
+        window._sliderValues[id] = value;
+      }
+      return window._sliderValues[id];
+    };
+    // Passthrough for untranspiled slider calls
     if (typeof window.slider !== 'function') {
-      window.slider = function(value) { return value; };
+      window.slider = function(v) { return v; };
     }
-    if (typeof window.sliderWithID !== 'function') {
-      window.sliderWithID = function(id, value) { return value; };
+
+    window._renderSliders = function(widgets) {
+      var container = document.getElementById('slider-container');
+      if (!container) return;
+      var sliders = widgets.filter(function(w) { return w.type === 'slider'; });
+      window._currentSliders = sliders;
+      
+      if (sliders.length === 0) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+      }
+      container.style.display = 'flex';
+      container.innerHTML = ''; 
+
+      sliders.forEach(function(s, idx) {
+        var row = document.createElement('div');
+        row.className = 'slider-row';
+        
+        var label = document.createElement('div');
+        label.className = 'slider-label';
+        // Use a friendly label: Slider 1, 2...
+        label.textContent = 'Slider ' + (idx + 1);
+        
+        var input = document.createElement('input');
+        input.type = 'range';
+        input.className = 'slider-input';
+        input.min = s.min !== undefined ? s.min : 0;
+        input.max = s.max !== undefined ? s.max : 1;
+        input.step = s.step !== undefined ? s.step : 0.01;
+        
+        // Initial value from code or previous state
+        var currentVal = window._sliderValues[s.id] !== undefined ? window._sliderValues[s.id] : parseFloat(s.value);
+        input.value = currentVal;
+        window._sliderValues[s.id] = currentVal; // ensure initialized
+        
+        var valDisplay = document.createElement('div');
+        valDisplay.className = 'slider-value';
+        valDisplay.textContent = parseFloat(input.value).toFixed(2);
+
+        input.oninput = function() {
+          var val = parseFloat(this.value);
+          window._sliderValues[s.id] = val;
+          valDisplay.textContent = val.toFixed(2);
+        };
+
+        row.appendChild(label);
+        row.appendChild(input);
+        row.appendChild(valDisplay);
+        container.appendChild(row);
+      });
+    };
+
+    // ── Secure Context Check ──
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setTimeout(function() {
+        showNotification('⚠️ 检测到非 HTTPS 环境：AudioWorklet 可能无法加载。请使用 HTTPS 访问。');
+      }, 2000);
     }
 
     console.log('[widget] Strudel inline visualization widgets registered ✓');
@@ -637,211 +739,40 @@
   </script>
 
   <script>
-    const PATTERNS = [
-      {
-        name: '🪩 Caverave',
-        code: `// "Caverave" by Felix Roos
-// @license CC BY-NC-SA 4.0
-// Techno/Rave track featuring polymetric rhythms and delay lines
-
-const keys = x => x.s('sawtooth').cutoff(1200).gain(.5)
-  .attack(0).decay(.16).sustain(.3).release(.1)
-  ._pianoroll({ fold:1, active:"#EFB8C8" })
-
-const drums = stack(
-  s("bd*2").mask("<x@7 ~>/8").gain(.8),
-  s("~ <sd!7 [sd@3 ~]>").mask("<x@7 ~>/4").gain(.5),
-  s("[~ hh]*2").delay(.3).delayfeedback(.5).delaytime(.125).gain(.4)
-)._punchcard()
-
-const synths = stack(
-  "<eb4 d4 c4 b3>/2"
-    .scale("<C:minor!3 C:melodic:minor>/2")
-    .struct("[~ x]*2")
-    .layer(
-      x=>x.scaleTranspose(0).early(0),
-      x=>x.scaleTranspose(2).early(1/8),
-      x=>x.scaleTranspose(7).early(1/4),
-      x=>x.scaleTranspose(8).early(3/8)
-    ).note().apply(keys).mask("<~ x>/16")
-    .color('#EFB8C8'),
-  
-  note("<C2 Bb1 Ab1 [G1 [G2 G1]]>/2")
-    .struct("[x [~ x] <[~ [~ x]]!3 [x x]>@2]/2".fast(2))
-    .s('sawtooth').attack(0.001).decay(0.2).sustain(1).cutoff(500)
-    .color('#D0BCFF')._scope(),
-
-  chord("<Cm7 Bb7 Fm7 G7b13>/2")
-    .struct("~ [x@0.2 ~]".fast(2))
-    .dict('lefthand').voicing()
-    .every(2, early(1/8))
-    .apply(keys).sustain(0)
-    .delay(.4).delaytime(.12)
-    .mask("<x@7 ~>/8".early(1/4))
-).add(note("<-1 0>/8"))
-
-stack(
-  drums.fast(2).color('#CCC2DC'), 
-  synths
-).slow(2)`,
-      },
-      {
-        name: '🎹 Blippy Rhodes',
-        code: `// "Blippy Rhodes" by Felix Roos
-// @license CC BY-NC-SA 4.0
-// Melodic IDM with sampled Rhodes piano and crispy beats
-
-// Samples loaded from Strudel CDN in prebake...
-
-stack(
-  s("<bd sn> <hh hh*2 hh*3>").color('#D0BCFF')._punchcard(),
-  "<g4 c5 a4 [ab4 <eb5 f5>]>"
-    .scale("<C:major C:mixolydian F:lydian [F:minor <Db:major Db:mixolydian>]>")
-    .struct("x*8")
-    .scaleTranspose("0 [-5,-2] -7 [-9,-2]")
-    .slow(2)
-    .note()
-    .clip(.3)
-    .s('rhodes') // Ensure 'rhodes' samples are loaded
-    .room(.5)
-    .delay(.3)
-    .delayfeedback(.4)
-    .delaytime(1/12).gain(.5).color('#EFB8C8')
-    ._pianoroll({ labels: 1 }),
-  "<c2 c3 f2 [[F2 C2] db2]>/2"
-    .add("0,.02")
-    .note().gain(.3)
-    .clip("<1@3 [.3 1]>/2")
-    .cutoff(600)
-    .lpa(.2).lpenv(-4)
-    .s('sawtooth').color('#CCC2DC')
-    ._scope(),
-).fast(3/2)`,
-      },
-      {
-        name: '🌊 Melting Submarine',
-        code: `// "Melting Submarine" by Felix Roos
-// @license CC BY-NC-SA 4.0
-// Ambient textures with RNG modulation and echo
-
-// useRNG('legacy') // RNG not fully supported in this shim mode
-
-stack(
-  s("bd:5,[~ <sd:1!3 sd:1(3,4,3)>],hh27(3,4,1)") // drums
-    .speed(1) // stabilized speed
-    ._punchcard(),
-  
-  "<a1 b1*2 a1(3,8) e2>" // bassline
-    .off(1/8,x=>x.add(12).degradeBy(.5)) 
-    .add(0) 
-    .superimpose(add(.05)) // add second, slightly detuned voice
-    .note() 
-    .decay(.15).sustain(0)
-    .s('sawtooth')
-    .gain(.4) 
-    .cutoff(sine.slow(7).range(300,5000)) // automate cutoff
-    .lpa(.1).lpenv(-2)
-    ._scope(),
-  
-  chord("<Am7!3 <Em7 E7b13 Em7 Ebm7b5>>")
-    .dict('lefthand').voicing() // chords
-    .add(note("0,.04")) // add second, slightly detuned voice
-    .add(note(0))
-    .s('sawtooth')
-    .gain(.16) 
-    .cutoff(500)
-    .attack(1)
-    ._pianoroll({ fold: 1 }),
-  
-  "a4 c5 <e6 a6>".struct("x(5,8,-1)")
-    .superimpose(x=>x.add(.04)) 
-    .add(0)
-    .note() 
-    .decay(.1).sustain(0) 
-    .s('triangle') 
-    // .degradeBy(perlin.range(0,.5)) 
-    .echoWith(4,.125,(x,n)=>x.gain(.15*1/(n+1))) // echo notes
-).slow(3/2)`,
-      },
-      {
-        name: '⚡️ User Test Music',
-        code: `setcpm(138/4)
-
-$kick: s("bd:1!4")
-  .duck("2:3:4").duckattack(.2).duckdepth(.8)
-  .compressor("-16:4:4:.04.1").distort(".5:.4").postgain(1.5)
-._scope()
-
-$chh: s("hh:1!4")
-  .velocity(".2 .3 .8 .7")
-  .gain(1.2)
-  .fast(4)
-._punchcard()
-
-$ohh: s("oh:2!4")
-  .velocity("0 0 1 0")
-  .fast(4)
-  .decay(.3)
-  .gain(1.2)
-._punchcard()
-
-$bass: note("~ g1 g2 g1")
-  .s("square")
-  .fast(4)
-  .decay(.2)
-  .delay(.3)
-  .orbit(2)
-._pianoroll()
-let filter_cutoff = slider(8,0,8)
-
-$lead: note("<g3 d4 <f4 c4 f4 c4 g4 ~>>")
-  .s("supersaw").detune(.5).gain(1.2)
-  .fast(16)
-  .lpf(200).lpenv(filter_cutoff).lpq(12)
-  .release(.04)
-  .hpf(300)
-  .delay(.5).room(.4).roomsize(3)
-  .orbit(2)
-._pianoroll()
-
-$subpad: note("g1")
-  .s("supersaw").detune(1)
-  .rel(0)
-  .gain(1.3)
-  .lpf(2000)
-  .orbit(2)
-._scope()
-
-/*
-$pad: note("g3, d4, g4")
-  .s("supersaw").detune(1)
-  .delay(.5)
-  .room(.5).roomsize(10)
-  .hpf(400)
-  .lpf(4000)
-  .orbit(2)
-._scope()
-*/
-
-$arp: note("d6(5, 8)")
-  .s("supersaw")
-  .fast(2)
-  .gain(.6)
-  .sustain(0)
-  .decay(.1)
-  .hpf(800)
-  .delay(.5)
-  .pan(sine.fast(2))
-  .orbit(2)
-._pianoroll()`,
-      }
-    ];
-
+    let PATTERNS = [];
     let currentPatternIndex = 0;
     let isPlaying = false;
     let strudelReady = false;
     let _hush = null;
     let _evaluate = null;
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state');
+        const data = await res.json();
+        PATTERNS = data.patterns || [];
+        updatePatternList();
+        if (PATTERNS.length > 0 && editor && editor.getValue().includes('正在加载')) {
+          showCode(PATTERNS[0].code);
+        }
+      } catch (e) {
+        console.error('Failed to fetch state:', e);
+      }
+    }
+
+    function updatePatternList() {
+      const patternList = document.getElementById('pattern-list');
+      if (!patternList) return;
+      patternList.innerHTML = '';
+      PATTERNS.forEach((p, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'pattern-btn' + (i === currentPatternIndex ? ' active' : '');
+        btn.textContent = p.name;
+        btn.title = p.description || '';
+        btn.addEventListener('click', () => switchPattern(i));
+        patternList.appendChild(btn);
+      });
+    }
 
     function setupScopeCanvas() {
       const canvas = document.getElementById('scope-canvas');
@@ -854,14 +785,8 @@ $arp: note("d6(5, 8)")
     setupScopeCanvas();
     window.addEventListener('resize', () => setupScopeCanvas());
 
-    const patternList = document.getElementById('pattern-list');
-    PATTERNS.forEach((p, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'pattern-btn' + (i === 0 ? ' active' : '');
-      btn.textContent = p.name;
-      btn.addEventListener('click', () => switchPattern(i));
-      patternList.appendChild(btn);
-    });
+    // ── Fetch Initial State ──
+    fetchState();
 
     // ─── CodeMirror Editor ───
     let editor = null;
@@ -924,6 +849,32 @@ $arp: note("d6(5, 8)")
     }
 
     async function safeEvaluate(code) {
+      // Try both .transpiler (new) and .transpile (some versions/aliases)
+      var transpileFn = (typeof strudel !== 'undefined') ? (strudel.transpiler || strudel.transpile) : null;
+      
+      if (typeof transpileFn === 'function') {
+        try {
+          // 1. Transpile to get output code and slider metadata
+          const result = transpileFn(code, { emitWidgets: true });
+          const transpiledCode = result.output || result.code;
+          
+          // 2. Render sliders UI if widgets exist
+          if (typeof window._renderSliders === 'function') {
+            window._renderSliders(result.widgets || result.sliders || []);
+          }
+          
+          // 3. Evaluate the transpiled code
+          // We use the primitive _evaluate or evaluate if available
+          if (typeof _evaluate === 'function') return await _evaluate(transpiledCode);
+          if (typeof evaluate === 'function') return await evaluate(transpiledCode);
+          
+          // Fallback to library evaluate (which might re-transpile, but that's okay)
+          return await strudel.evaluate(code); 
+        } catch (e) {
+          console.warn('[safeEvaluate] Transpile failed, falling back to direct eval:', e);
+        }
+      }
+      
       if (typeof _evaluate === 'function') return await _evaluate(code);
       if (typeof evaluate === 'function') return await evaluate(code);
       if (typeof strudel !== 'undefined' && typeof strudel.evaluate === 'function') return await strudel.evaluate(code);
@@ -993,37 +944,47 @@ $arp: note("d6(5, 8)")
       document.getElementById('status-text').innerHTML = '<span class="spinner"></span>\u00a0\u6b63\u5728\u521d\u59cb\u5316\u2026';
       try {
         // ── initStrudel prebake matching strudel.cc ──
-        // defaultPrebake() (called internally) already does:
-        //   - evalScope(@strudel/core, mini, tonal, webaudio, { hush, evaluate })
-        //   - registerSynthSounds()
-        // Our custom prebake adds sample packs that strudel.cc loads.
         const CDN = 'https://strudel.b-cdn.net';
+        
+        // Helper for robust sample loading
+        async function loadSamples(name, ...args) {
+          const maxRetries = 2;
+          for (let i = 0; i <= maxRetries; i++) {
+            try {
+              return await samples(...args);
+            } catch (err) {
+              console.warn(`[Samples] Failed to load ${name} (attempt ${i+1}):`, err);
+              if (i === maxRetries) return null;
+              await new Promise(r => setTimeout(r, 1000));
+            }
+          }
+        }
+
         await initStrudel({
-          prebake: () => Promise.all([
-            // Register ZZFX sounds (not called in defaultPrebake)
+          prebake: () => Promise.allSettled([
+            // Register ZZFX sounds
             typeof registerZZFXSounds === 'function' ? registerZZFXSounds() : Promise.resolve(),
-            // Dirt-Samples (bd, sd, hh, oh, cp, cr, etc.)
-            samples('github:tidalcycles/dirt-samples'),
-            // Piano samples (Salamander Grand Piano)
-            samples(`${CDN}/piano.json`, `${CDN}/piano/`, { prebake: true }),
-            // VCSL (Virtual Carnegie Stern Library) CC0
-            samples(`${CDN}/vcsl.json`, `${CDN}/VCSL/`, { prebake: true }),
-            // Tidal drum machines (RolandTR808, RolandTR909, etc.)
-            samples(`${CDN}/tidal-drum-machines.json`, `${CDN}/tidal-drum-machines/machines/`, {
+            // Dirt-Samples
+            loadSamples('dirt', 'github:tidalcycles/dirt-samples'),
+            // Piano samples
+            loadSamples('piano', `${CDN}/piano.json`, `${CDN}/piano/`, { prebake: true }),
+            // VCSL
+            loadSamples('vcsl', `${CDN}/vcsl.json`, `${CDN}/VCSL/`, { prebake: true }),
+            // Tidal drum machines
+            loadSamples('tidal-drums', `${CDN}/tidal-drum-machines.json`, `${CDN}/tidal-drum-machines/machines/`, {
               prebake: true, tag: 'drum-machines',
             }),
             // Uzu drumkit
-            samples(`${CDN}/uzu-drumkit.json`, `${CDN}/uzu-drumkit/`, {
+            loadSamples('uzu-drums', `${CDN}/uzu-drumkit.json`, `${CDN}/uzu-drumkit/`, {
               prebake: true, tag: 'drum-machines',
             }),
             // Uzu wavetables
-            samples(`${CDN}/uzu-wavetables.json`, `${CDN}/uzu-wavetables/`, { prebake: true }),
+            loadSamples('uzu-waves', `${CDN}/uzu-wavetables.json`, `${CDN}/uzu-wavetables/`, { prebake: true }),
             // Mridangam
-            samples(`${CDN}/mridangam.json`, `${CDN}/mrid/`, { prebake: true, tag: 'drum-machines' }),
+            loadSamples('mridangam', `${CDN}/mridangam.json`, `${CDN}/mrid/`, { prebake: true, tag: 'drum-machines' }),
           ]).then(() => {
-            // Load tidal drum machine aliases (tr808 → RolandTR808, etc.)
             if (typeof aliasBank === 'function') {
-              aliasBank(`${CDN}/tidal-drum-machines-alias.json`);
+              aliasBank(`${CDN}/tidal-drum-machines-alias.json`).catch(e => console.warn('aliasBank failed', e));
             }
           }),
         });
