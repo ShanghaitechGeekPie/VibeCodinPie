@@ -528,7 +528,7 @@
     // This makes the transpiler inject unique IDs as the first argument
     // to ._scope(), ._pianoroll() etc. calls during evaluate().
     if (typeof registerWidgetType === 'function') {
-      ['_scope','_pianoroll','_punchcard','_spiral','_pitchwheel','_spectrum','_wordfall'].forEach(function(t) {
+      ['_scope','_pianoroll','_punchcard','_spiral','_pitchwheel','_spectrum','_wordfall','slider'].forEach(function(t) {
         registerWidgetType(t);
       });
     }
@@ -665,20 +665,26 @@
     window._currentSliders = []; // Sliders present in current code
 
     window.sliderWithID = function(id, value, min, max, step) {
-      if (!(id in window._sliderValues)) {
-        window._sliderValues[id] = value;
+      // Ensure we have a valid number
+      var fallback = parseFloat(value);
+      if (isNaN(fallback)) fallback = 0.5;
+
+      if (window._sliderValues[id] === undefined || isNaN(window._sliderValues[id])) {
+        window._sliderValues[id] = fallback;
       }
       return window._sliderValues[id];
     };
     // Passthrough for untranspiled slider calls
-    if (typeof window.slider !== 'function') {
-      window.slider = function(v) { return v; };
-    }
+    window.slider = function(v, min, max, step) {
+      var val = parseFloat(v);
+      return isNaN(val) ? 0.5 : val;
+    };
 
     window._renderSliders = function(widgets) {
       var container = document.getElementById('slider-container');
       if (!container) return;
-      var sliders = widgets.filter(function(w) { return w.type === 'slider'; });
+      
+      var sliders = (widgets || []).filter(function(w) { return w.type === 'slider'; });
       window._currentSliders = sliders;
       
       if (sliders.length === 0) {
@@ -686,6 +692,8 @@
         container.innerHTML = '';
         return;
       }
+      
+      console.log('[Sliders] Rendering', sliders.length, 'sliders');
       container.style.display = 'flex';
       container.innerHTML = ''; 
 
@@ -695,18 +703,27 @@
         
         var label = document.createElement('div');
         label.className = 'slider-label';
-        // Use a friendly label: Slider 1, 2...
-        label.textContent = 'Slider ' + (idx + 1);
+        label.textContent = s.name || 'Slider ' + (idx + 1);
         
         var input = document.createElement('input');
         input.type = 'range';
         input.className = 'slider-input';
-        input.min = s.min !== undefined ? s.min : 0;
-        input.max = s.max !== undefined ? s.max : 1;
-        input.step = s.step !== undefined ? s.step : 0.01;
+        
+        var min = s.min !== undefined ? parseFloat(s.min) : 0;
+        var max = s.max !== undefined ? parseFloat(s.max) : 1;
+        var step = s.step !== undefined ? parseFloat(s.step) : 0.01;
+        var def = s.value !== undefined ? parseFloat(s.value) : (min + max) / 2;
+
+        input.min = min;
+        input.max = max;
+        input.step = step;
         
         // Initial value from code or previous state
-        var currentVal = window._sliderValues[s.id] !== undefined ? window._sliderValues[s.id] : parseFloat(s.value);
+        var currentVal = window._sliderValues[s.id];
+        if (currentVal === undefined || isNaN(currentVal)) {
+          currentVal = def;
+        }
+        
         input.value = currentVal;
         window._sliderValues[s.id] = currentVal; // ensure initialized
         
@@ -849,38 +866,27 @@
     }
 
     async function safeEvaluate(code) {
-      // Try both .transpiler (new) and .transpile (some versions/aliases)
-      var transpileFn = (typeof strudel !== 'undefined') ? (strudel.transpiler || strudel.transpile) : null;
+      const transpileFn = (typeof strudel !== 'undefined') ? (strudel.transpiler || strudel.transpile) : null;
       
+      // 1. First, transpile just to extract widgets/sliders for our UI
       if (typeof transpileFn === 'function') {
         try {
-          // 1. Transpile to get output code and slider metadata
           const result = transpileFn(code, { emitWidgets: true });
-          const transpiledCode = result.output || result.code;
-          
-          // 2. Render sliders UI if widgets exist
           if (typeof window._renderSliders === 'function') {
             window._renderSliders(result.widgets || result.sliders || []);
           }
-          
-          // 3. Evaluate the code
-          // We use original 'code' here because _evaluate/evaluate themselves 
-          // usually wrap the code or handle 'return' correctly. 
-          // If we pass 'transpiledCode', it may contain a top-level 'return' 
-          // which causes standard JS parsers to fail.
-          if (typeof _evaluate === 'function') return await _evaluate(code);
-          if (typeof evaluate === 'function') return await evaluate(code);
-          
-          // Fallback to library evaluate
-          return await strudel.evaluate(code); 
         } catch (e) {
-          console.warn('[safeEvaluate] Transpile failed, falling back to direct eval:', e);
+          console.warn('[safeEvaluate] Widget extraction failed:', e);
         }
       }
       
-      if (typeof _evaluate === 'function') return await _evaluate(code);
-      if (typeof evaluate === 'function') return await evaluate(code);
-      if (typeof strudel !== 'undefined' && typeof strudel.evaluate === 'function') return await strudel.evaluate(code);
+      // 2. Now use the actual Strudel evaluator to run the code.
+      // This handles $: syntax, scheduling, and reactivity properly.
+      const evalFn = _evaluate || evaluate || (strudel && strudel.evaluate);
+      if (typeof evalFn === 'function') {
+        return await evalFn(code);
+      }
+      
       throw new Error('evaluate() not available');
     }
 
@@ -949,12 +955,18 @@
         // ── initStrudel prebake matching strudel.cc ──
         const CDN = 'https://strudel.b-cdn.net';
         
-        // Helper for robust sample loading
+        // Helper for robust sample loading with timeout
         async function loadSamples(name, ...args) {
-          const maxRetries = 2;
+          const timeout = 15000; // 15 seconds timeout
+          const maxRetries = 1;
+          
           for (let i = 0; i <= maxRetries; i++) {
             try {
-              return await samples(...args);
+              const promise = samples(...args);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), timeout)
+              );
+              return await Promise.race([promise, timeoutPromise]);
             } catch (err) {
               console.warn(`[Samples] Failed to load ${name} (attempt ${i+1}):`, err);
               if (i === maxRetries) return null;
@@ -970,21 +982,21 @@
             // Dirt-Samples
             loadSamples('dirt', 'github:tidalcycles/dirt-samples'),
             // Piano samples
-            loadSamples('piano', `${CDN}/piano.json`, `${CDN}/piano/`, { prebake: true }),
+            loadSamples('piano', `${CDN}/piano.json`, `${CDN}/piano/`, { prebake: false }),
             // VCSL
-            loadSamples('vcsl', `${CDN}/vcsl.json`, `${CDN}/VCSL/`, { prebake: true }),
+            loadSamples('vcsl', `${CDN}/vcsl.json`, `${CDN}/VCSL/`, { prebake: false }),
             // Tidal drum machines
             loadSamples('tidal-drums', `${CDN}/tidal-drum-machines.json`, `${CDN}/tidal-drum-machines/machines/`, {
-              prebake: true, tag: 'drum-machines',
+              prebake: false, tag: 'drum-machines',
             }),
             // Uzu drumkit
             loadSamples('uzu-drums', `${CDN}/uzu-drumkit.json`, `${CDN}/uzu-drumkit/`, {
-              prebake: true, tag: 'drum-machines',
+              prebake: false, tag: 'drum-machines',
             }),
             // Uzu wavetables
-            loadSamples('uzu-waves', `${CDN}/uzu-wavetables.json`, `${CDN}/uzu-wavetables/`, { prebake: true }),
+            loadSamples('uzu-waves', `${CDN}/uzu-wavetables.json`, `${CDN}/uzu-wavetables/`, { prebake: false }),
             // Mridangam
-            loadSamples('mridangam', `${CDN}/mridangam.json`, `${CDN}/mrid/`, { prebake: true, tag: 'drum-machines' }),
+            loadSamples('mridangam', `${CDN}/mridangam.json`, `${CDN}/mrid/`, { prebake: false, tag: 'drum-machines' }),
           ]).then(() => {
             if (typeof aliasBank === 'function') {
               aliasBank(`${CDN}/tidal-drum-machines-alias.json`).catch(e => console.warn('aliasBank failed', e));
