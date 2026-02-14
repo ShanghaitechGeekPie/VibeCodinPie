@@ -1,0 +1,318 @@
+/* 🥧 Vibe Cod'in Pie — Big Screen Styles */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;700&display=swap');
+
+/* ── Reset ─────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a1a;
+  color: #e0e0ff;
+  font-family: 'Noto Sans SC', 'JetBrains Mono', monospace;
+}
+
+/* ── Hydra Background ──────────────────────────── */
+#hydra-canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+#hydra-canvas {
+  width: 100%;
+  height: 100%;
+  opacity: 0.4;
+}
+
+/* ── Overlay ───────────────────────────────────── */
+#overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ────────────────────────────────────── */
+#header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 32px;
+  background: rgba(10, 10, 26, 0.6);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(100, 100, 255, 0.15);
+}
+
+#title {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #888;
+}
+
+#status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #666;
+}
+
+#status-dot.status-connected {
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+}
+
+#status-dot.status-disconnected {
+  background: #f87171;
+  box-shadow: 0 0 8px #f87171;
+}
+
+#status-dot.status-error {
+  background: #fbbf24;
+  box-shadow: 0 0 8px #fbbf24;
+}
+
+/* ── Main Content ──────────────────────────────── */
+#main-content {
+  flex: 1;
+  display: flex;
+  padding: 24px 32px;
+  gap: 24px;
+  overflow: hidden;
+}
+
+/* ── Code Container ────────────────────────────── */
+#code-container {
+  flex: 1;
+  background: rgba(10, 10, 26, 0.75);
+  border: 1px solid rgba(100, 100, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  overflow-y: auto;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+#code-container.flash {
+  border-color: rgba(52, 211, 153, 0.6);
+  box-shadow: 0 0 30px rgba(52, 211, 153, 0.15);
+}
+
+#code-display pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+#code-display code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 20px;
+  line-height: 1.6;
+  color: #c4c4e0;
+}
+
+/* Syntax highlighting */
+#code-display .comment {
+  color: #6b7280;
+  font-style: italic;
+}
+
+#code-display .string {
+  color: #34d399;
+}
+
+#code-display .number {
+  color: #fbbf24;
+}
+
+#code-display .keyword {
+  color: #a78bfa;
+  font-weight: 700;
+}
+
+#code-display .label {
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+#code-display .viz {
+  color: #f472b6;
+  font-style: italic;
+}
+
+/* ── Sidebar ───────────────────────────────────── */
+#sidebar {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+#qr-container {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(100, 100, 255, 0.2);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+#qr-code img {
+  border-radius: 8px;
+}
+
+#qr-label {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #a78bfa;
+  font-weight: 700;
+}
+
+#queue-info {
+  background: rgba(100, 100, 255, 0.1);
+  border: 1px solid rgba(100, 100, 255, 0.2);
+  border-radius: 12px;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+}
+
+#queue-num {
+  color: #60a5fa;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* ── Prompt Ticker ─────────────────────────────── */
+#prompt-ticker {
+  padding: 12px 32px;
+  background: rgba(10, 10, 26, 0.6);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(100, 100, 255, 0.15);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#prompt-ticker-inner {
+  display: inline-flex;
+  gap: 40px;
+  animation: ticker-scroll 20s linear infinite;
+}
+
+.ticker-item {
+  font-size: 16px;
+  color: #a0a0c0;
+  padding: 4px 16px;
+  background: rgba(100, 100, 255, 0.08);
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+
+/* ── Prompt Notification ───────────────────────── */
+.prompt-notification {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(167, 139, 250, 0.2);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  backdrop-filter: blur(12px);
+  padding: 12px 28px;
+  border-radius: 30px;
+  font-size: 18px;
+  color: #e0e0ff;
+  opacity: 0;
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.prompt-notification.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Start Overlay ─────────────────────────────── */
+#start-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  background: rgba(10, 10, 26, 0.95);
+  backdrop-filter: blur(20px);
+}
+
+#start-btn {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  padding: 20px 60px;
+  border: 2px solid rgba(167, 139, 250, 0.6);
+  border-radius: 20px;
+  background: rgba(167, 139, 250, 0.15);
+  color: #e0e0ff;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+#start-btn:hover {
+  background: rgba(167, 139, 250, 0.3);
+  border-color: rgba(167, 139, 250, 0.8);
+  box-shadow: 0 0 40px rgba(167, 139, 250, 0.2);
+  transform: scale(1.05);
+}
+
+#start-overlay p {
+  font-size: 16px;
+  color: #666;
+}
+
+/* ── Scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 255, 0.3);
+  border-radius: 3px;
+}

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>修复验证 - Vibe Cod'in Pie</title>
+  <style>
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #1a1a2e;
+      color: #e0e0ff;
+      padding: 40px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    h1 { color: #a78bfa; margin-bottom: 30px; }
+    h2 { color: #60a5fa; margin-top: 30px; }
+    .fix {
+      background: rgba(100, 100, 255, 0.1);
+      border-left: 3px solid #34d399;
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 8px;
+    }
+    .test-step {
+      background: rgba(167, 139, 250, 0.1);
+      border-left: 3px solid #a78bfa;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+    }
+    code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    pre {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      border-left: 3px solid #34d399;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .fixed { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+    .improvement { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<h1>🥧 Vibe Cod'in Pie - 修复验证清单</h1>
+
+<p>此页面总结了已应用的所有修复。请按照测试步骤逐一验证功能。</p>
+
+<h2>✅ 已应用的修复</h2>
+
+<div class="fix">
+  <h3>修复 1: 停止按钮不工作 <span class="status fixed">已修复</span></h3>
+  <p><strong>问题:</strong> 点击 ⏹ 停止 后，音乐不停止</p>
+  <p><strong>原因:</strong> <code>hush()</code> 是异步的，但代码没有 await</p>
+  <p><strong>解决:</strong> 现在使用 <code>await hush()</code></p>
+  <pre>async function stopPlayback(internal = false) {
+  try { 
+    await hush(); 
+  } catch (e) {
+    console.warn('[Strudel] hush() error:', e);
+  }
+  if (!internal) {
+    updatePlayState(false);
+  }
+}</pre>
+</div>
+
+<div class="fix">
+  <h3>修复 2: 声音叠加 <span class="status fixed">已修复</span></h3>
+  <p><strong>问题:</strong> 切换预设时，旧预设和新预设的声音同时播放</p>
+  <p><strong>原因:</strong> 播放新预设前没有等待旧预设停止</p>
+  <p><strong>解决:</strong> 播放前总是先 <code>await stopPlayback(true)</code>，然后等待 100ms</p>
+  <pre>async function playCurrentPattern() {
+  // ...
+  await stopPlayback(true);  // 先停止
+  await new Promise(r => setTimeout(r, 100));  // 等待
+  await evaluate(pat.code);  // 再播放
+}</pre>
+</div>
+
+<div class="fix">
+  <h3>修复 3: 可视化功能 <span class="status improvement">已添加</span></h3>
+  <p><strong>缺失:</strong> 官方网站有 _scope()、_punchcard() 等可视化，我们没有</p>
+  <p><strong>限制:</strong> 这些需要 CodeMirror 编辑器，我们使用编程 API 不能用</p>
+  <p><strong>方案:</strong> 实现自定义 Canvas 可视化 - Piano Roll</p>
+  <pre>// 功能:
+// - 显示/隐藏按钮 (📊 显示可视化)
+// - Piano Roll 网格 (12 个音阶 × 16 个时间分区)
+// - 从代码提取的音符指示器
+// - 实时更新 (每次播放时)</pre>
+</div>
+
+<h2>🧪 手动测试步骤</h2>
+
+<div class="test-step">
+  <h3>第 1 步: 初始化</h3>
+  <ol>
+    <li>打开 <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+    <li>点击 "🎵 点击开始 🥧" 按钮</li>
+    <li>等待状态变为 "✅ 就绪 — 点击 ▶ 开始播放"</li>
+    <li><strong>预期:</strong> 页面加载，无错误信息</li>
+  </ol>
+</div>
+
+<div class="test-step">
+  <h3>第 2 步: 播放功能 (修复 1 验证)</h3>
+  <ol>
+    <li>点击 "▶ 播放" 按钮</li>
+    <li>听到音乐播放 (节拍 + 合成器)</li>
+    <li>点击 "⏹ 停止" 按钮</li>
+    <li><strong>预期:</strong> 音乐立即停止 (不需要再点一次)</li>
+    <li>再次点击 "▶ 播放"，应该再次听到音乐</li>
+  </ol>
+</div>
+
+<div class="test-step">
+  <h3>第 3 步: 预设切换 (修复 2 验证)</h3>
+  <ol>
+    <li>点击 "▶ 播放" 播放第一个预设 (🌙 Ambient)</li>
+    <li>立即点击其他预设按钮，例如 "🥁 Lo-fi Beat"</li>
+    <li><strong>关键验证:</strong>
+      <ul>
+        <li>✓ 旧预设的声音立即停止</li>
+        <li>✓ 新预设的声音开始播放</li>
+        <li>✓ <strong>不应该</strong> 听到两个节拍重叠</li>
+        <li>✓ 代码显示实时更新</li>
+      </ul>
+    </li>
+    <li>快速在多个预设间切换，验证没有重叠</li>
+  </ol>
+</div>
+
+<div class="test-step">
+  <h3>第 4 步: 可视化功能</h3>
+  <ol>
+    <li>播放任何预设</li>
+    <li>点击代码显示上方的 "📊 显示可视化" 按钮</li>
+    <li><strong>预期:</strong>
+      <ul>
+        <li>✓ 右侧出现 Canvas 面板</li>
+        <li>✓ 显示 Piano Roll 网格</li>
+        <li>✓ 显示从当前代码提取的音符</li>
+        <li>✓ 显示音符数量计数</li>
+      </ul>
+    </li>
+    <li>切换不同预设，可视化实时更新</li>
+    <li>点击 "📝 隐藏可视化" 隐藏 Canvas，恢复全屏代码</li>
+  </ol>
+</div>
+
+<div class="test-step">
+  <h3>第 5 步: 边界情况</h3>
+  <ol>
+    <li><strong>快速连续点击:</strong> 快速多次点击播放按钮 → 应该播放一次，不叠加</li>
+    <li><strong>强制停止:</strong> 播放中点击停止 → 音乐立即停止</li>
+    <li><strong>切换后立即停止:</strong> 切换预设后立即点停止 → 新预设的音乐停止</li>
+  </ol>
+</div>
+
+<h2>📋 测试结果检查清单</h2>
+
+<table style="width: 100%; border-collapse: collapse;">
+  <tr style="background: rgba(100, 100, 255, 0.1);">
+    <th style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: left;">功能</th>
+    <th style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">通过 ✓</th>
+    <th style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">失败 ✗</th>
+  </tr>
+  <tr>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">初始化完成</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr style="background: rgba(0, 0, 0, 0.2);">
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">播放按钮有效</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">停止按钮有效 (立即停止)</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr style="background: rgba(0, 0, 0, 0.2);">
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">预设切换无叠加</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">代码显示更新</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr style="background: rgba(0, 0, 0, 0.2);">
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">可视化显示/隐藏</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">Piano Roll 显示正确</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr style="background: rgba(0, 0, 0, 0.2);">
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">快速切换无重叠</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+  <tr>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2);">无控制台错误</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+    <td style="padding: 10px; border: 1px solid rgba(100, 100, 255, 0.2); text-align: center;">☐</td>
+  </tr>
+</table>
+
+<h2>❓ 故障排除</h2>
+
+<p><strong>如果播放仍不工作:</strong></p>
+<ul>
+  <li>打开浏览器 DevTools (F12 → Console)</li>
+  <li>查看是否有红色错误信息</li>
+  <li>检查 <code>[Strudel]</code> 开头的日志消息</li>
+  <li>确保 AudioContext 已初始化 (见状态文本)</li>
+</ul>
+
+<p><strong>如果停止仍不工作:</strong></p>
+<ul>
+  <li>在 Console 手动运行: <code>await hush()</code></li>
+  <li>检查是否返回错误</li>
+  <li>确保 Web Audio API 可用</li>
+</ul>
+
+<p><strong>如果可视化不显示:</strong></p>
+<ul>
+  <li>确保点击了 "📊 显示可视化" 按钮</li>
+  <li>检查浏览器是否支持 Canvas (所有现代浏览器都支持)</li>
+  <li>当前代码中必须有 <code>note()</code> 调用才能显示音符</li>
+</ul>
+
+<hr style="border: none; border-top: 1px solid rgba(100, 100, 255, 0.2); margin: 40px 0;">
+
+<p style="text-align: center; color: #666;">
+  文档生成于: 2026-02-13 <br>
+  所有修复已应用并准备好测试
+</p>
+
+</body>
+</html>

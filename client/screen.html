@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🥧 Vibe Cod'in Pie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Text:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
+  <!-- CodeMirror 5 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/material-darker.min.css" />
+  <style>
+    /* ═══════════════════════════════════════════════
+       Material 3 — Dark Theme Design Tokens
+       Based on M3 Baseline Dark Scheme
+       ═══════════════════════════════════════════════ */
+    :root {
+      --md-sys-color-primary:             #D0BCFF;
+      --md-sys-color-on-primary:          #381E72;
+      --md-sys-color-primary-container:   #4F378B;
+      --md-sys-color-on-primary-container:#EADDFF;
+      --md-sys-color-secondary:             #CCC2DC;
+      --md-sys-color-on-secondary:          #332D41;
+      --md-sys-color-secondary-container:   #4A4458;
+      --md-sys-color-on-secondary-container:#E8DEF8;
+      --md-sys-color-tertiary:             #EFB8C8;
+      --md-sys-color-on-tertiary:          #492532;
+      --md-sys-color-tertiary-container:   #633B48;
+      --md-sys-color-on-tertiary-container:#FFD8E4;
+      --md-sys-color-error:             #F2B8B5;
+      --md-sys-color-on-error:          #601410;
+      --md-sys-color-error-container:   #8C1D18;
+      --md-sys-color-on-error-container:#F9DEDC;
+      --md-sys-color-surface:             #141218;
+      --md-sys-color-on-surface:          #E6E0E9;
+      --md-sys-color-surface-variant:     #49454F;
+      --md-sys-color-on-surface-variant:  #CAC4D0;
+      --md-sys-color-surface-dim:           #141218;
+      --md-sys-color-surface-bright:        #3B383E;
+      --md-sys-color-surface-container-lowest: #0F0D13;
+      --md-sys-color-surface-container-low:    #1D1B20;
+      --md-sys-color-surface-container:        #211F26;
+      --md-sys-color-surface-container-high:   #2B2930;
+      --md-sys-color-surface-container-highest:#36343B;
+      --md-sys-color-outline:         #938F99;
+      --md-sys-color-outline-variant: #49454F;
+      --md-sys-color-inverse-surface:    #E6E0E9;
+      --md-sys-color-inverse-on-surface: #322F35;
+      --md-sys-color-inverse-primary:    #6750A4;
+      --md-sys-color-shadow:     #000000;
+      --md-sys-color-scrim:      #000000;
+      --md-sys-state-hover-opacity:   0.08;
+      --md-sys-state-focus-opacity:   0.12;
+      --md-sys-state-pressed-opacity: 0.12;
+      --md-sys-typescale-display-font:   'Google Sans', 'Noto Sans SC', sans-serif;
+      --md-sys-typescale-headline-font:  'Google Sans', 'Noto Sans SC', sans-serif;
+      --md-sys-typescale-title-font:     'Google Sans Text', 'Noto Sans SC', sans-serif;
+      --md-sys-typescale-body-font:      'Google Sans Text', 'Noto Sans SC', sans-serif;
+      --md-sys-typescale-label-font:     'Google Sans Text', 'Noto Sans SC', sans-serif;
+      --md-sys-shape-corner-none:        0px;
+      --md-sys-shape-corner-extra-small: 4px;
+      --md-sys-shape-corner-small:       8px;
+      --md-sys-shape-corner-medium:      12px;
+      --md-sys-shape-corner-large:       16px;
+      --md-sys-shape-corner-extra-large: 28px;
+      --md-sys-shape-corner-full:        9999px;
+      --md-sys-elevation-1: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.3);
+      --md-sys-elevation-2: 0 2px 6px 2px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.3);
+      --md-sys-elevation-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px 0 rgba(0,0,0,0.3);
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      font-family: var(--md-sys-typescale-body-font);
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-corner-full); }
+    .material-symbols-rounded {
+      font-family: 'Material Symbols Rounded';
+      font-weight: normal; font-style: normal; font-size: 24px;
+      line-height: 1; letter-spacing: normal;
+      text-transform: none; display: inline-block;
+      white-space: nowrap; word-wrap: normal;
+      direction: ltr; font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+    }
+    #start-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center; gap: 24px;
+      background: var(--md-sys-color-scrim);
+      opacity: 1;
+      transition: opacity 0.3s cubic-bezier(0.2, 0, 0, 1);
+    }
+    #start-overlay.hidden { opacity: 0; pointer-events: none; }
+    #start-btn {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 16px; font-weight: 500; letter-spacing: 0.1px;
+      padding: 16px 32px; border: none;
+      border-radius: var(--md-sys-shape-corner-large);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      cursor: pointer;
+      box-shadow: var(--md-sys-elevation-3);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      display: flex; align-items: center; gap: 12px;
+    }
+    #start-btn:hover { filter: brightness(1.08); }
+    #start-btn:active { transform: scale(0.97); }
+    #start-btn .material-symbols-rounded { font-size: 24px; }
+    #start-overlay .subtitle {
+      font-family: var(--md-sys-typescale-body-font);
+      font-size: 14px; color: var(--md-sys-color-on-surface-variant);
+    }
+    #app { display: flex; flex-direction: column; width: 100%; height: 100%; }
+    #header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 16px; height: 64px; min-height: 64px;
+      background: var(--md-sys-color-surface);
+      z-index: 20; position: relative;
+    }
+    #title {
+      font-family: var(--md-sys-typescale-title-font);
+      font-size: 22px; font-weight: 400;
+      color: var(--md-sys-color-on-surface);
+      display: flex; align-items: center; gap: 8px;
+    }
+    #title .material-symbols-rounded { font-size: 28px; color: var(--md-sys-color-primary); }
+    #controls { display: flex; gap: 8px; align-items: center; }
+    .md-tonal-btn {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 14px; font-weight: 500; letter-spacing: 0.1px;
+      padding: 0 24px; height: 40px; border: none;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .md-tonal-btn:hover { filter: brightness(1.08); }
+    .md-tonal-btn:active { transform: scale(0.97); }
+    .md-tonal-btn .material-symbols-rounded { font-size: 18px; }
+    .md-tonal-btn.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+    .md-outlined-btn {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 14px; font-weight: 500; letter-spacing: 0.1px;
+      padding: 0 24px; height: 40px;
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--md-sys-shape-corner-full);
+      background: transparent;
+      color: var(--md-sys-color-on-surface-variant);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .md-outlined-btn:hover { background: rgba(202,196,208, var(--md-sys-state-hover-opacity)); }
+    .md-outlined-btn:active { transform: scale(0.97); }
+    .md-outlined-btn .material-symbols-rounded { font-size: 18px; }
+    #status-text {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 12px; font-weight: 500;
+      color: var(--md-sys-color-on-surface-variant);
+      padding: 0 12px; height: 32px;
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: var(--md-sys-shape-corner-small);
+      background: transparent;
+    }
+    #main { flex: 1; display: flex; position: relative; overflow: hidden; }
+    #code-display {
+      flex: 1; position: relative; overflow: hidden;
+      display: flex; flex-direction: column;
+      margin: 0 12px 0 16px; z-index: 10;
+    }
+    #code-label {
+      padding: 12px 16px;
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 12px; font-weight: 500;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      color: var(--md-sys-color-on-surface-variant);
+      background: var(--md-sys-color-surface-container);
+      border-radius: var(--md-sys-shape-corner-large) var(--md-sys-shape-corner-large) 0 0;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #code-label .dot {
+      width: 8px; height: 8px; border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-tertiary);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    #code-label .dot.stopped { background: var(--md-sys-color-outline); animation: none; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    /* CodeMirror editor container */
+    #code-editor-wrap {
+      flex: 1; overflow: hidden;
+      background: var(--md-sys-color-surface-container-low);
+    }
+    /* M3 theme overrides for CodeMirror */
+    .CodeMirror {
+      height: 100% !important;
+      background: var(--md-sys-color-surface-container-low) !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 14px !important;
+      line-height: 1.7 !important;
+      color: var(--md-sys-color-on-surface) !important;
+      padding: 8px 0;
+    }
+    .CodeMirror-gutters {
+      background: var(--md-sys-color-surface-container) !important;
+      border-right: 1px solid var(--md-sys-color-outline-variant) !important;
+    }
+    .CodeMirror-linenumber {
+      color: var(--md-sys-color-outline) !important;
+      font-size: 11px !important;
+    }
+    .CodeMirror-cursor {
+      border-left-color: var(--md-sys-color-primary) !important;
+    }
+    .CodeMirror-selected {
+      background: rgba(208,188,255,0.18) !important;
+    }
+    .CodeMirror-focused .CodeMirror-selected {
+      background: rgba(208,188,255,0.25) !important;
+    }
+    .CodeMirror-matchingbracket {
+      color: var(--md-sys-color-tertiary) !important;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    .CodeMirror-scrollbar-filler,
+    .CodeMirror-gutter-filler { background: transparent !important; }
+    .cm-s-material-darker .cm-keyword { color: #C792EA !important; }
+    .cm-s-material-darker .cm-string { color: #C3E88D !important; }
+    .cm-s-material-darker .cm-number { color: #F78C6C !important; }
+    .cm-s-material-darker .cm-comment { color: #6A737D !important; }
+    .cm-s-material-darker .cm-def { color: #82AAFF !important; }
+    .cm-s-material-darker .cm-property { color: var(--md-sys-color-primary) !important; }
+    .cm-s-material-darker .cm-operator { color: #89DDFF !important; }
+    .cm-s-material-darker .cm-variable { color: var(--md-sys-color-on-surface) !important; }
+    .cm-s-material-darker .cm-variable-2 { color: #EEFFFF !important; }
+    .cm-s-material-darker .cm-atom { color: #F78C6C !important; }
+    /* Editor action bar */
+    #editor-actions {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      background: var(--md-sys-color-surface-container);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .md-text-btn {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 12px; font-weight: 500; letter-spacing: 0.1px;
+      padding: 0 12px; height: 32px; border: none;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: transparent;
+      color: var(--md-sys-color-primary);
+      cursor: pointer;
+      transition: background 0.15s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .md-text-btn:hover { background: rgba(208,188,255, var(--md-sys-state-hover-opacity)); }
+    .md-text-btn .material-symbols-rounded { font-size: 16px; }
+    #editor-hint {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 11px; color: var(--md-sys-color-outline);
+      margin-left: auto;
+    }
+    #test-canvas { z-index: 1 !important; opacity: 0.6 !important; }
+    #scope-canvas {
+      width: 100%; height: 56px; min-height: 56px;
+      background: var(--md-sys-color-surface-container-lowest);
+      border-radius: 0 0 var(--md-sys-shape-corner-large) var(--md-sys-shape-corner-large);
+    }
+    /* ── Inline Visualization Widgets (CM5 line widgets) ── */
+    .cm-inline-widget {
+      padding: 4px 0 4px 30px;
+      background: transparent;
+      overflow: hidden;
+      position: relative;
+    }
+    .cm-inline-widget canvas {
+      display: block;
+      width: calc(100% - 8px);
+      border-radius: var(--md-sys-shape-corner-small);
+      background: rgba(15, 13, 19, 0.55);
+      border: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .cm-inline-widget .widget-label {
+      position: absolute;
+      top: 6px; right: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; font-weight: 500;
+      color: var(--md-sys-color-outline);
+      pointer-events: none;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    #sidebar {
+      width: 180px; padding: 12px;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
+      background: var(--md-sys-color-surface);
+      z-index: 20; position: relative; margin-right: 16px;
+    }
+    #qr-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--md-sys-color-surface-container-high);
+      border-radius: var(--md-sys-shape-corner-medium);
+      padding: 12px; text-align: center;
+    }
+    #qr-container img { border-radius: var(--md-sys-shape-corner-small); }
+    #qr-label {
+      margin-top: 8px;
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 12px; font-weight: 500;
+      color: var(--md-sys-color-primary);
+    }
+    #pattern-list {
+      width: 100%; display: flex; flex-direction: column; gap: 2px;
+      overflow-y: auto; flex: 1;
+    }
+    .pattern-btn {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 12px; font-weight: 500;
+      padding: 0 16px; height: 40px;
+      border-radius: var(--md-sys-shape-corner-full);
+      cursor: pointer; border: none;
+      background: transparent;
+      color: var(--md-sys-color-on-surface-variant);
+      text-align: left; transition: background 0.15s;
+      display: flex; align-items: center; gap: 8px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pattern-btn:hover { background: rgba(202,196,208, var(--md-sys-state-hover-opacity)); }
+    .pattern-btn.active {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      font-weight: 700;
+    }
+    #ticker {
+      padding: 0 24px;
+      background: var(--md-sys-color-surface-container);
+      overflow: hidden; white-space: nowrap;
+      z-index: 20; position: relative;
+      height: 48px; min-height: 48px;
+      display: flex; align-items: center;
+      box-shadow: 0 -1px 0 0 var(--md-sys-color-surface-container-highest);
+    }
+    #ticker-inner { display: inline-flex; gap: 24px; animation: ticker-scroll 30s linear infinite; }
+    .ticker-item {
+      font-family: var(--md-sys-typescale-label-font);
+      font-size: 12px; font-weight: 500;
+      color: var(--md-sys-color-on-surface-variant);
+      padding: 0 12px; height: 32px;
+      display: inline-flex; align-items: center;
+      background: var(--md-sys-color-surface-container-high);
+      border-radius: var(--md-sys-shape-corner-small);
+      flex-shrink: 0;
+    }
+    @keyframes ticker-scroll { 0% { transform: translateX(80vw); } 100% { transform: translateX(-100%); } }
+    .notification {
+      position: fixed; bottom: 72px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: var(--md-sys-color-inverse-surface);
+      color: var(--md-sys-color-inverse-on-surface);
+      padding: 0 16px; height: 48px;
+      display: flex; align-items: center;
+      border-radius: var(--md-sys-shape-corner-extra-small);
+      font-family: var(--md-sys-typescale-body-font);
+      font-size: 14px; font-weight: 400;
+      box-shadow: var(--md-sys-elevation-3);
+      opacity: 0;
+      transition: opacity 0.2s cubic-bezier(0.2,0,0,1), transform 0.2s cubic-bezier(0.2,0,0,1);
+      z-index: 100; pointer-events: none;
+    }
+    .notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2.5px solid transparent;
+      border-top-color: var(--md-sys-color-primary);
+      border-radius: var(--md-sys-shape-corner-full);
+      animation: spin 0.8s linear infinite; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .md-divider { width: 100%; height: 1px; background: var(--md-sys-color-outline-variant); }
+  </style>
+</head>
+<body>
+  <div id="start-overlay">
+    <button id="start-btn">
+      <span class="material-symbols-rounded">play_circle</span>
+      点击开始
+    </button>
+    <span class="subtitle">Vibe Cod'in Pie — GeekPie Pi Day 2026</span>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div id="header">
+      <div id="title">
+        <span class="material-symbols-rounded">music_note</span>
+        Vibe Cod'in Pie
+      </div>
+      <div id="controls">
+        <button id="btn-play" class="md-tonal-btn">
+          <span class="material-symbols-rounded">play_arrow</span>
+          播放
+        </button>
+        <button id="btn-stop" class="md-outlined-btn">
+          <span class="material-symbols-rounded">stop</span>
+          停止
+        </button>
+        <span id="status-text">初始化中…</span>
+      </div>
+    </div>
+    <div class="md-divider"></div>
+    <div id="main">
+      <div id="code-display">
+        <div id="code-label">
+          <span class="dot stopped" id="play-dot"></span>
+          <span id="code-label-text">当前代码</span>
+        </div>
+        <div id="code-editor-wrap"></div>
+        <div id="editor-actions">
+          <button id="btn-run" class="md-text-btn">
+            <span class="material-symbols-rounded">play_circle</span>
+            运行代码
+          </button>
+          <button id="btn-reset" class="md-text-btn">
+            <span class="material-symbols-rounded">restart_alt</span>
+            重置
+          </button>
+          <span id="editor-hint">Ctrl+Enter 运行</span>
+        </div>
+        <canvas id="scope-canvas"></canvas>
+      </div>
+      <div id="sidebar">
+        <div id="qr-container">
+          <img id="qr-img" src="" alt="QR" width="120" height="120" style="display:none;" />
+          <div id="qr-label">扫码参与</div>
+        </div>
+        <div class="md-divider"></div>
+        <div id="pattern-list"></div>
+      </div>
+    </div>
+    <div id="ticker">
+      <div id="ticker-inner">
+        <span class="ticker-item">🥧 欢迎来到 Vibe Cod'in Pie!</span>
+        <span class="ticker-item">📱 扫右上角二维码提交你的音乐想法</span>
+        <span class="ticker-item">🤖 AI 会将你的描述变成音乐代码</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CodeMirror 5 JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
+  <script src="https://unpkg.com/@strudel/web@1.3.0"></script>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Strudel Inline Visualization Widgets
+       @strudel/web UMD does NOT include @strudel/codemirror, so the
+       widget methods (._scope, ._pianoroll, ._punchcard …) are missing.
+       We implement them here: each method creates an inline <canvas>,
+       wires up the actual drawing function from @strudel/draw or
+       @strudel/webaudio, and queues the canvas for insertion into the
+       CodeMirror 5 editor via addLineWidget().
+       ═══════════════════════════════════════════════════════════════════ -->
+  <script>
+  (function() {
+    if (typeof strudel === 'undefined' || !strudel.Pattern) {
+      console.error('[widget] strudel.Pattern not found – UMD failed to load?');
+      return;
+    }
+    var P = strudel.Pattern.prototype;
+
+    // ── Register widget types with the transpiler ──
+    // This makes the transpiler inject unique IDs as the first argument
+    // to ._scope(), ._pianoroll() etc. calls during evaluate().
+    if (typeof registerWidgetType === 'function') {
+      ['_scope','_pianoroll','_punchcard','_spiral','_pitchwheel','_spectrum','_wordfall'].forEach(function(t) {
+        registerWidgetType(t);
+      });
+    }
+
+    // ── Inline Widget Canvas System ──
+    var _inlineWidgets = [];   // CM5 LineWidget handles
+    var _pendingWidgets = [];  // {canvas, wrapper, type, id} queue
+    var _widgetIdCounter = 0;
+
+    window._clearInlineWidgets = function() {
+      _inlineWidgets.forEach(function(w) { try { w.clear(); } catch(e) {} });
+      _inlineWidgets = [];
+      _pendingWidgets = [];
+      _widgetIdCounter = 0;
+    };
+
+    window._insertInlineWidgets = function(cmEditor) {
+      if (!cmEditor || _pendingWidgets.length === 0) return;
+      var code = cmEditor.getValue();
+      var lines = code.split('\n');
+      // Find lines containing widget method calls
+      var widgetRe = /\._(scope|pianoroll|punchcard|spiral|pitchwheel|spectrum|wordfall)\s*\(/;
+      var widgetLines = [];
+      lines.forEach(function(line, i) {
+        var m = line.match(widgetRe);
+        if (m) widgetLines.push({ line: i, type: '_' + m[1] });
+      });
+      // Match pending canvases to editor lines by type order
+      var counters = {};
+      widgetLines.forEach(function(info) {
+        if (!counters[info.type]) counters[info.type] = 0;
+        var idx = counters[info.type]++;
+        var matching = _pendingWidgets.filter(function(w) { return w.type === info.type; });
+        if (matching[idx]) {
+          var lw = cmEditor.addLineWidget(info.line, matching[idx].wrapper, {
+            coverGutter: false,
+            noHScroll: true,
+            above: false,
+          });
+          _inlineWidgets.push(lw);
+        }
+      });
+    };
+
+    function createWidgetCanvas(type, opts) {
+      opts = opts || {};
+      var id = '_w_' + type + '_' + (_widgetIdCounter++);
+      var width = opts.width || 500;
+      var height = opts.height || 60;
+      var dpr = window.devicePixelRatio || 1;
+
+      var canvas = document.createElement('canvas');
+      canvas.id = id;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.height = height + 'px';
+
+      var label = document.createElement('span');
+      label.className = 'widget-label';
+      label.textContent = type.replace('_', '');
+
+      var wrapper = document.createElement('div');
+      wrapper.className = 'cm-inline-widget';
+      wrapper.appendChild(canvas);
+      wrapper.appendChild(label);
+
+      _pendingWidgets.push({ canvas: canvas, wrapper: wrapper, type: type, id: id });
+      return { canvas: canvas, id: id, ctx: canvas.getContext('2d') };
+    }
+
+    function parseArgs(args) {
+      // The transpiler may inject a string ID as first arg
+      if (typeof args[0] === 'string') return args[1] || {};
+      return args[0] || {};
+    }
+
+    // ── _pianoroll: scrolling note visualization ──
+    P._pianoroll = function() {
+      var options = parseArgs(arguments);
+      var w = createWidgetCanvas('_pianoroll', options);
+      return this.tag(w.id).pianoroll(Object.assign({ fold: 1 }, options, { ctx: w.ctx, id: w.id }));
+    };
+
+    // ── _punchcard: folded pianoroll ──
+    P._punchcard = function() {
+      var options = parseArgs(arguments);
+      var w = createWidgetCanvas('_punchcard', options);
+      return this.tag(w.id).pianoroll(Object.assign({ fold: 1 }, options, { ctx: w.ctx, id: w.id }));
+    };
+
+    // ── _scope: oscilloscope (time-domain waveform) ──
+    P._scope = function() {
+      var options = parseArgs(arguments);
+      var w = createWidgetCanvas('_scope', { width: 500, height: 60 });
+      return this.scope(Object.assign({ pos: 0.5, scale: 1 }, options, { ctx: w.ctx, id: w.id }));
+    };
+
+    // ── _spectrum: frequency spectrum ──
+    P._spectrum = function() {
+      var options = parseArgs(arguments);
+      var w = createWidgetCanvas('_spectrum', { width: 500, height: 60 });
+      if (typeof this.spectrum === 'function') {
+        return this.spectrum(Object.assign({}, options, { ctx: w.ctx, id: w.id }));
+      }
+      return this; // fallback no-op
+    };
+
+    // ── _spiral: uses pianoroll as fallback (spiral needs onPaint) ──
+    P._spiral = function() {
+      var options = parseArgs(arguments);
+      var sz = options.size || 200;
+      var w = createWidgetCanvas('_spiral', { width: sz, height: sz });
+      return this.tag(w.id).pianoroll(Object.assign({ fold: 1 }, options, { ctx: w.ctx, id: w.id }));
+    };
+
+    // ── _pitchwheel: uses pianoroll as fallback ──
+    P._pitchwheel = function() {
+      var options = parseArgs(arguments);
+      var w = createWidgetCanvas('_pitchwheel', { width: 500, height: 60 });
+      return this.tag(w.id).pianoroll(Object.assign({ fold: 1 }, options, { ctx: w.ctx, id: w.id }));
+    };
+
+    // ── _wordfall: vertical pianoroll with labels ──
+    P._wordfall = function() {
+      var options = parseArgs(arguments);
+      var w = createWidgetCanvas('_wordfall', options);
+      return this.tag(w.id).pianoroll(Object.assign(
+        { vertical: 1, labels: 1, fold: 1, fill: 1 }, options, { ctx: w.ctx, id: w.id }
+      ));
+    };
+
+    // ── slider / sliderWithID stubs ──
+    if (typeof window.slider !== 'function') {
+      window.slider = function(value) { return value; };
+    }
+    if (typeof window.sliderWithID !== 'function') {
+      window.sliderWithID = function(id, value) { return value; };
+    }
+
+    console.log('[widget] Strudel inline visualization widgets registered ✓');
+  })();
+  </script>
+
+  <script>
+    const PATTERNS = [
+      {
+        name: '🪩 Caverave',
+        code: `// "Caverave" by Felix Roos
+// @license CC BY-NC-SA 4.0
+// Techno/Rave track featuring polymetric rhythms and delay lines
+
+const keys = x => x.s('sawtooth').cutoff(1200).gain(.5)
+  .attack(0).decay(.16).sustain(.3).release(.1)
+  ._pianoroll({ fold:1, active:"#EFB8C8" })
+
+const drums = stack(
+  s("bd*2").mask("<x@7 ~>/8").gain(.8),
+  s("~ <sd!7 [sd@3 ~]>").mask("<x@7 ~>/4").gain(.5),
+  s("[~ hh]*2").delay(.3).delayfeedback(.5).delaytime(.125).gain(.4)
+)._punchcard()
+
+const synths = stack(
+  "<eb4 d4 c4 b3>/2"
+    .scale("<C:minor!3 C:melodic:minor>/2")
+    .struct("[~ x]*2")
+    .layer(
+      x=>x.scaleTranspose(0).early(0),
+      x=>x.scaleTranspose(2).early(1/8),
+      x=>x.scaleTranspose(7).early(1/4),
+      x=>x.scaleTranspose(8).early(3/8)
+    ).note().apply(keys).mask("<~ x>/16")
+    .color('#EFB8C8'),
+  
+  note("<C2 Bb1 Ab1 [G1 [G2 G1]]>/2")
+    .struct("[x [~ x] <[~ [~ x]]!3 [x x]>@2]/2".fast(2))
+    .s('sawtooth').attack(0.001).decay(0.2).sustain(1).cutoff(500)
+    .color('#D0BCFF')._scope(),
+
+  chord("<Cm7 Bb7 Fm7 G7b13>/2")
+    .struct("~ [x@0.2 ~]".fast(2))
+    .dict('lefthand').voicing()
+    .every(2, early(1/8))
+    .apply(keys).sustain(0)
+    .delay(.4).delaytime(.12)
+    .mask("<x@7 ~>/8".early(1/4))
+).add(note("<-1 0>/8"))
+
+stack(
+  drums.fast(2).color('#CCC2DC'), 
+  synths
+).slow(2)`,
+      },
+      {
+        name: '🎹 Blippy Rhodes',
+        code: `// "Blippy Rhodes" by Felix Roos
+// @license CC BY-NC-SA 4.0
+// Melodic IDM with sampled Rhodes piano and crispy beats
+
+// Samples loaded from Strudel CDN in prebake...
+
+stack(
+  s("<bd sn> <hh hh*2 hh*3>").color('#D0BCFF')._punchcard(),
+  "<g4 c5 a4 [ab4 <eb5 f5>]>"
+    .scale("<C:major C:mixolydian F:lydian [F:minor <Db:major Db:mixolydian>]>")
+    .struct("x*8")
+    .scaleTranspose("0 [-5,-2] -7 [-9,-2]")
+    .slow(2)
+    .note()
+    .clip(.3)
+    .s('rhodes') // Ensure 'rhodes' samples are loaded
+    .room(.5)
+    .delay(.3)
+    .delayfeedback(.4)
+    .delaytime(1/12).gain(.5).color('#EFB8C8')
+    ._pianoroll({ labels: 1 }),
+  "<c2 c3 f2 [[F2 C2] db2]>/2"
+    .add("0,.02")
+    .note().gain(.3)
+    .clip("<1@3 [.3 1]>/2")
+    .cutoff(600)
+    .lpa(.2).lpenv(-4)
+    .s('sawtooth').color('#CCC2DC')
+    ._scope(),
+).fast(3/2)`,
+      },
+      {
+        name: '🌊 Melting Submarine',
+        code: `// "Melting Submarine" by Felix Roos
+// @license CC BY-NC-SA 4.0
+// Ambient textures with RNG modulation and echo
+
+// useRNG('legacy') // RNG not fully supported in this shim mode
+
+stack(
+  s("bd:5,[~ <sd:1!3 sd:1(3,4,3)>],hh27(3,4,1)") // drums
+    .speed(1) // stabilized speed
+    ._punchcard(),
+  
+  "<a1 b1*2 a1(3,8) e2>" // bassline
+    .off(1/8,x=>x.add(12).degradeBy(.5)) 
+    .add(0) 
+    .superimpose(add(.05)) // add second, slightly detuned voice
+    .note() 
+    .decay(.15).sustain(0)
+    .s('sawtooth')
+    .gain(.4) 
+    .cutoff(sine.slow(7).range(300,5000)) // automate cutoff
+    .lpa(.1).lpenv(-2)
+    ._scope(),
+  
+  chord("<Am7!3 <Em7 E7b13 Em7 Ebm7b5>>")
+    .dict('lefthand').voicing() // chords
+    .add(note("0,.04")) // add second, slightly detuned voice
+    .add(note(0))
+    .s('sawtooth')
+    .gain(.16) 
+    .cutoff(500)
+    .attack(1)
+    ._pianoroll({ fold: 1 }),
+  
+  "a4 c5 <e6 a6>".struct("x(5,8,-1)")
+    .superimpose(x=>x.add(.04)) 
+    .add(0)
+    .note() 
+    .decay(.1).sustain(0) 
+    .s('triangle') 
+    // .degradeBy(perlin.range(0,.5)) 
+    .echoWith(4,.125,(x,n)=>x.gain(.15*1/(n+1))) // echo notes
+).slow(3/2)`,
+      },
+      {
+        name: '⚡️ User Test Music',
+        code: `setcpm(138/4)
+
+$kick: s("bd:1!4")
+  .duck("2:3:4").duckattack(.2).duckdepth(.8)
+  .compressor("-16:4:4:.04.1").distort(".5:.4").postgain(1.5)
+._scope()
+
+$chh: s("hh:1!4")
+  .velocity(".2 .3 .8 .7")
+  .gain(1.2)
+  .fast(4)
+._punchcard()
+
+$ohh: s("oh:2!4")
+  .velocity("0 0 1 0")
+  .fast(4)
+  .decay(.3)
+  .gain(1.2)
+._punchcard()
+
+$bass: note("~ g1 g2 g1")
+  .s("square")
+  .fast(4)
+  .decay(.2)
+  .delay(.3)
+  .orbit(2)
+._pianoroll()
+let filter_cutoff = slider(8,0,8)
+
+$lead: note("<g3 d4 <f4 c4 f4 c4 g4 ~>>")
+  .s("supersaw").detune(.5).gain(1.2)
+  .fast(16)
+  .lpf(200).lpenv(filter_cutoff).lpq(12)
+  .release(.04)
+  .hpf(300)
+  .delay(.5).room(.4).roomsize(3)
+  .orbit(2)
+._pianoroll()
+
+$subpad: note("g1")
+  .s("supersaw").detune(1)
+  .rel(0)
+  .gain(1.3)
+  .lpf(2000)
+  .orbit(2)
+._scope()
+
+/*
+$pad: note("g3, d4, g4")
+  .s("supersaw").detune(1)
+  .delay(.5)
+  .room(.5).roomsize(10)
+  .hpf(400)
+  .lpf(4000)
+  .orbit(2)
+._scope()
+*/
+
+$arp: note("d6(5, 8)")
+  .s("supersaw")
+  .fast(2)
+  .gain(.6)
+  .sustain(0)
+  .decay(.1)
+  .hpf(800)
+  .delay(.5)
+  .pan(sine.fast(2))
+  .orbit(2)
+._pianoroll()`,
+      }
+    ];
+
+    let currentPatternIndex = 0;
+    let isPlaying = false;
+    let strudelReady = false;
+    let _hush = null;
+    let _evaluate = null;
+
+    function setupScopeCanvas() {
+      const canvas = document.getElementById('scope-canvas');
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.clientWidth * dpr;
+      canvas.height = canvas.clientHeight * dpr;
+      window.__scopeCtx = canvas.getContext('2d', { willReadFrequently: true });
+    }
+    setupScopeCanvas();
+    window.addEventListener('resize', () => setupScopeCanvas());
+
+    const patternList = document.getElementById('pattern-list');
+    PATTERNS.forEach((p, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'pattern-btn' + (i === 0 ? ' active' : '');
+      btn.textContent = p.name;
+      btn.addEventListener('click', () => switchPattern(i));
+      patternList.appendChild(btn);
+    });
+
+    // ─── CodeMirror Editor ───
+    let editor = null;
+    function initEditor() {
+      editor = CodeMirror(document.getElementById('code-editor-wrap'), {
+        value: '// 正在加载 Strudel…',
+        mode: 'javascript',
+        theme: 'material-darker',
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        tabSize: 2,
+        indentWithTabs: false,
+        lineWrapping: true,
+        extraKeys: {
+          'Ctrl-Enter': () => runEditorCode(),
+          'Cmd-Enter':  () => runEditorCode(),
+        },
+      });
+    }
+    initEditor();
+
+    function showCode(text) {
+      if (editor) {
+        editor.setValue(text);
+        setTimeout(() => editor.refresh(), 10);
+      }
+    }
+
+    // Run whatever is in the editor
+    async function runEditorCode() {
+      if (!strudelReady) { showNotification('Strudel 还在初始化…'); return; }
+      const code = editor.getValue();
+      try {
+        _clearInlineWidgets();      // remove old visualizations
+        await safeEvaluate(code);
+        _insertInlineWidgets(editor); // insert new inline canvases
+        updatePlayState(true);
+        showNotification('✅ 代码已执行');
+        syncCodeToServer(code); // keep server in sync
+      } catch (e) {
+        console.error('[Strudel] Editor eval error:', e);
+        showNotification('❌ ' + e.message);
+      }
+    }
+
+    document.getElementById('btn-run').addEventListener('click', () => runEditorCode());
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      showCode(PATTERNS[currentPatternIndex].code);
+      showNotification('已重置为预设代码');
+    });
+
+    function safeHush() {
+      try {
+        if (typeof _hush === 'function') { _hush(); return; }
+        if (typeof hush === 'function') { hush(); return; }
+        if (typeof strudel !== 'undefined' && typeof strudel.hush === 'function') { strudel.hush(); return; }
+        console.warn('[hush] no hush function available!');
+      } catch(e) { console.error('[hush] error:', e); }
+    }
+
+    async function safeEvaluate(code) {
+      if (typeof _evaluate === 'function') return await _evaluate(code);
+      if (typeof evaluate === 'function') return await evaluate(code);
+      if (typeof strudel !== 'undefined' && typeof strudel.evaluate === 'function') return await strudel.evaluate(code);
+      throw new Error('evaluate() not available');
+    }
+
+    async function playCurrentPattern() {
+      if (!strudelReady) { showNotification('Strudel 还在初始化…'); return; }
+      // Use editor content (may have been edited by user)
+      const code = editor ? editor.getValue() : PATTERNS[currentPatternIndex].code;
+      try {
+        _clearInlineWidgets();      // remove old visualizations
+        await safeEvaluate(code);
+        _insertInlineWidgets(editor); // insert new inline canvases
+        updatePlayState(true);
+        syncCodeToServer(code); // keep server in sync
+      } catch (e) {
+        console.error('[Strudel] Play error:', e);
+        showNotification('播放出错: ' + e.message);
+      }
+    }
+
+    function stopPlayback() {
+      safeHush();
+      _clearInlineWidgets();        // remove inline visualizations
+      const testCanvas = document.getElementById('test-canvas');
+      if (testCanvas) { const ctx = testCanvas.getContext('2d'); ctx.clearRect(0, 0, testCanvas.width, testCanvas.height); }
+      const scopeCanvas = document.getElementById('scope-canvas');
+      if (scopeCanvas) { const ctx = scopeCanvas.getContext('2d'); ctx.clearRect(0, 0, scopeCanvas.width, scopeCanvas.height); }
+      updatePlayState(false);
+    }
+
+    function switchPattern(index) {
+      currentPatternIndex = index;
+      document.querySelectorAll('.pattern-btn').forEach((btn, i) => btn.classList.toggle('active', i === index));
+      showCode(PATTERNS[index].code);
+      syncCodeToServer(PATTERNS[index].code); // keep server in sync
+      if (isPlaying) playCurrentPattern();
+      showNotification(PATTERNS[index].name);
+    }
+
+    const btnPlay = document.getElementById('btn-play');
+    const btnStop = document.getElementById('btn-stop');
+
+    function updatePlayState(playing) {
+      isPlaying = playing;
+      btnPlay.classList.toggle('active', playing);
+      const playIcon = btnPlay.querySelector('.material-symbols-rounded');
+      const playText = btnPlay.childNodes[btnPlay.childNodes.length - 1];
+      playIcon.textContent = 'play_arrow';
+      playText.textContent = playing ? '\u64ad\u653e\u4e2d' : '\u64ad\u653e';
+      document.getElementById('status-text').textContent = playing ? '\ud83d\udd0a \u64ad\u653e\u4e2d' : '\u5c31\u7eea';
+      document.getElementById('play-dot').classList.toggle('stopped', !playing);
+      document.getElementById('code-label-text').textContent = playing ? '\u6b63\u5728\u64ad\u653e' : '\u5f53\u524d\u4ee3\u7801';
+    }
+
+    btnPlay.addEventListener('click', () => playCurrentPattern());
+    btnStop.addEventListener('click', () => stopPlayback());
+
+    document.getElementById('start-btn').addEventListener('click', async () => {
+      const overlay = document.getElementById('start-overlay');
+      const app = document.getElementById('app');
+      overlay.classList.add('hidden');
+      app.style.display = 'flex';
+      setupScopeCanvas();
+      if (editor) setTimeout(() => editor.refresh(), 100);
+      document.getElementById('status-text').innerHTML = '<span class="spinner"></span>\u00a0\u6b63\u5728\u521d\u59cb\u5316\u2026';
+      try {
+        // ── initStrudel prebake matching strudel.cc ──
+        // defaultPrebake() (called internally) already does:
+        //   - evalScope(@strudel/core, mini, tonal, webaudio, { hush, evaluate })
+        //   - registerSynthSounds()
+        // Our custom prebake adds sample packs that strudel.cc loads.
+        const CDN = 'https://strudel.b-cdn.net';
+        await initStrudel({
+          prebake: () => Promise.all([
+            // Register ZZFX sounds (not called in defaultPrebake)
+            typeof registerZZFXSounds === 'function' ? registerZZFXSounds() : Promise.resolve(),
+            // Dirt-Samples (bd, sd, hh, oh, cp, cr, etc.)
+            samples('github:tidalcycles/dirt-samples'),
+            // Piano samples (Salamander Grand Piano)
+            samples(`${CDN}/piano.json`, `${CDN}/piano/`, { prebake: true }),
+            // VCSL (Virtual Carnegie Stern Library) CC0
+            samples(`${CDN}/vcsl.json`, `${CDN}/VCSL/`, { prebake: true }),
+            // Tidal drum machines (RolandTR808, RolandTR909, etc.)
+            samples(`${CDN}/tidal-drum-machines.json`, `${CDN}/tidal-drum-machines/machines/`, {
+              prebake: true, tag: 'drum-machines',
+            }),
+            // Uzu drumkit
+            samples(`${CDN}/uzu-drumkit.json`, `${CDN}/uzu-drumkit/`, {
+              prebake: true, tag: 'drum-machines',
+            }),
+            // Uzu wavetables
+            samples(`${CDN}/uzu-wavetables.json`, `${CDN}/uzu-wavetables/`, { prebake: true }),
+            // Mridangam
+            samples(`${CDN}/mridangam.json`, `${CDN}/mrid/`, { prebake: true, tag: 'drum-machines' }),
+          ]).then(() => {
+            // Load tidal drum machine aliases (tr808 → RolandTR808, etc.)
+            if (typeof aliasBank === 'function') {
+              aliasBank(`${CDN}/tidal-drum-machines-alias.json`);
+            }
+          }),
+        });
+        strudelReady = true;
+        _hush = window.hush || null;
+        _evaluate = window.evaluate || null;
+        console.log('[Strudel] Ready! _hush:', typeof _hush, '_evaluate:', typeof _evaluate);
+        document.getElementById('status-text').textContent = '\u2705 \u5c31\u7eea';
+        showCode(PATTERNS[0].code);
+        generateQR();
+      } catch (e) {
+        console.error('[Strudel] Init error:', e);
+        document.getElementById('status-text').textContent = '\u274c \u521d\u59cb\u5316\u5931\u8d25';
+      }
+    });
+
+    function generateQR() {
+      const host = window.location.hostname || 'localhost';
+      const url = `http://${host}:3000/submit`;
+      const qrImg = document.getElementById('qr-img');
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}&bgcolor=141218&color=E6E0E9&format=svg`;
+      qrImg.style.display = 'block';
+    }
+
+    function showNotification(text) {
+      const el = document.createElement('div');
+      el.className = 'notification';
+      el.textContent = text;
+      document.body.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3000);
+    }
+
+    window.updateStrudelCode = async function(code, name) {
+      if (!strudelReady) return;
+      try {
+        _clearInlineWidgets();
+        await safeEvaluate(code);
+        updatePlayState(true);
+        showCode(code);
+        _insertInlineWidgets(editor);
+        if (name) showNotification(name);
+      } catch(e) {
+        console.error('[Strudel] Code eval error:', e);
+        showNotification('\u4ee3\u7801\u6267\u884c\u51fa\u9519');
+      }
+    };
+
+    // Refresh editor when app becomes visible (after overlay dismiss)
+    const appObserver = new MutationObserver(() => {
+      if (document.getElementById('app').style.display !== 'none' && editor) {
+        setTimeout(() => editor.refresh(), 50);
+      }
+    });
+    appObserver.observe(document.getElementById('app'), { attributes: true, attributeFilter: ['style'] });
+
+    // ── WebSocket Integration ──
+    let _ws = null; // global reference for code sync
+
+    function syncCodeToServer(code) {
+      if (_ws && _ws.readyState === WebSocket.OPEN) {
+        _ws.send(JSON.stringify({ type: 'sync_code', code }));
+      }
+    }
+
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.hostname}:3000/ws?type=screen`;
+      console.log('Connecting to WS:', wsUrl);
+      const ws = new WebSocket(wsUrl);
+      _ws = ws;
+
+      ws.onopen = () => {
+        console.log('🔌 WebSocket connected');
+        showNotification('🔌 服务器已连接');
+        // Sync whatever code the screen is currently showing
+        if (editor) syncCodeToServer(editor.getValue());
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleWsMessage(msg);
+        } catch(e) { console.error('WS parse error', e); }
+      };
+
+      ws.onclose = () => {
+        console.log('WS disconnected, retrying...');
+        _ws = null;
+        setTimeout(connectWebSocket, 3000);
+      };
+    }
+
+    function handleWsMessage(msg) {
+      if (msg.type === 'request_code') {
+        // Server is about to call AI — send the ACTUAL code from the editor
+        if (_ws && _ws.readyState === WebSocket.OPEN && editor) {
+          _ws.send(JSON.stringify({ type: 'sync_code', code: editor.getValue() }));
+        }
+        return;
+      }
+      if (msg.type === 'code_update') {
+        const code = msg.code;
+        const prompt = msg.prompt;
+        window.updateStrudelCode(code, `🤖 AI: ${prompt}`);
+        if (msg.recentPrompts) updateTicker(msg.recentPrompts);
+      } else if (msg.type === 'init') {
+        if (msg.recentPrompts) updateTicker(msg.recentPrompts);
+      }
+    }
+
+    function updateTicker(prompts) {
+       const inner = document.getElementById('ticker-inner');
+       if(!inner) return;
+       inner.innerHTML = prompts.map(p => `<span class="ticker-item">💬 ${p}</span>`).join('') + 
+         `<span class="ticker-item">🥧 提交你的创意!</span>`;
+    }
+
+    // Connect WS immediately on page load (before user clicks Start)
+    // This ensures code sync works even before audio is playing
+    connectWebSocket();
+
+    // Also reconnect if needed when user starts audio
+    document.getElementById('start-btn').addEventListener('click', () => {
+      if (!_ws || _ws.readyState !== WebSocket.OPEN) connectWebSocket();
+    });
+  </script>
+</body>
+</html>

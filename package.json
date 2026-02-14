@@ -1,0 +1,28 @@
+{
+  "name": "vibe-codin-pie",
+  "version": "1.0.0",
+  "description": "🥧 Vibe Cod'in Pie - AI-driven interactive live coding music for GeekPie Pi Day",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "vite client",
+    "build": "vite build client",
+    "start": "NODE_ENV=production node server/index.js",
+    "preview": "vite preview client"
+  },
+  "dependencies": {
+    "acorn": "^8.14.0",
+    "acorn-walk": "^8.3.4",
+    "concurrently": "^9.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "vite": "^6.1.0"
+  }
+}
