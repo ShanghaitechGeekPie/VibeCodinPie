@@ -312,7 +312,12 @@ app.get('/api/state', (req, res) => {
     currentCode,
     recentPrompts,
     queueSize: promptQueue.size(),
-    patterns: INITIAL_PATTERNS.map((p, i) => ({ name: p.name, index: i })),
+    patterns: INITIAL_PATTERNS.map((p, i) => ({ 
+      name: p.name, 
+      description: p.description,
+      code: p.code,
+      index: i 
+    })),
   });
 });
 
