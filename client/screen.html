@@ -1091,7 +1091,9 @@ $arp: note("d6(5, 8)")
 
     function connectWebSocket() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.hostname}:3000/ws?type=screen`;
+      // Use standard ports (80/443) when using domain names, fall back to current port if not 80/443
+      const port = (window.location.port === '80' || window.location.port === '443' || window.location.port === '') ? '' : ':3000';
+      const wsUrl = `${protocol}//${window.location.hostname}${port}/ws?type=screen`;
       console.log('Connecting to WS:', wsUrl);
       const ws = new WebSocket(wsUrl);
       _ws = ws;

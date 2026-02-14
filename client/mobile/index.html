@@ -397,7 +397,9 @@
 
     function connectWS() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsHost = location.hostname + ':3000';
+      // Use standard ports if already on 80/443 or domain, otherwise fallback to 3000
+      const port = (location.port === '80' || location.port === '443' || location.port === '') ? '' : ':3000';
+      const wsHost = location.hostname + port;
       const wsUrl = `${protocol}//${wsHost}/ws?type=mobile&session=${sessionId}`;
 
       ws = new WebSocket(wsUrl);
