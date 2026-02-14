@@ -863,12 +863,15 @@
             window._renderSliders(result.widgets || result.sliders || []);
           }
           
-          // 3. Evaluate the transpiled code
-          // We use the primitive _evaluate or evaluate if available
-          if (typeof _evaluate === 'function') return await _evaluate(transpiledCode);
-          if (typeof evaluate === 'function') return await evaluate(transpiledCode);
+          // 3. Evaluate the code
+          // We use original 'code' here because _evaluate/evaluate themselves 
+          // usually wrap the code or handle 'return' correctly. 
+          // If we pass 'transpiledCode', it may contain a top-level 'return' 
+          // which causes standard JS parsers to fail.
+          if (typeof _evaluate === 'function') return await _evaluate(code);
+          if (typeof evaluate === 'function') return await evaluate(code);
           
-          // Fallback to library evaluate (which might re-transpile, but that's okay)
+          // Fallback to library evaluate
           return await strudel.evaluate(code); 
         } catch (e) {
           console.warn('[safeEvaluate] Transpile failed, falling back to direct eval:', e);
