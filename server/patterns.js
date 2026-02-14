@@ -347,18 +347,16 @@ const bassCutoff = slider(800, 200, 5000)
 
 // 🥁 鼓组部分
 $kick: s("bd:1!4")
-  .duck(2).duckattack(.05).duckdepth(.6)
-  .compressor("-16:4:4:.04.1").distort(drive).postgain(1.2)
+  .duck(2, 0.05, 0.6) // orbit, attack, depth
+  .distort(drive).gain(1.2)
   ._scope()
 
 $chh: s("hh:1!4")
-  .velocity(".2 .3 .8 .7")
-  .fast(4)
+  .velocity(".2 .3 .8 .7").fast(4)
   ._punchcard()
 
-$ohh: s("oh:2!4")
-  .velocity("0 0 1 0")
-  .fast(4).decay(.3)
+$ohh: s("oh:1!4")
+  .velocity("0 0 1 0").fast(4).decay(.3)
   ._punchcard()
 
 // 🔉 低音部分 (受 Slider 控制)
