@@ -303,6 +303,7 @@ app.use('/submit', express.static(path.join(__dirname, '../client/mobile'), {
 // Serve favicon directly if present in client/ (keeps root simple)
 app.get('/favicon.ico', (req, res) => {
   const ico = path.join(__dirname, '../client/favicon.ico');
+  res.setHeader('Content-Type', 'image/x-icon');
   res.sendFile(ico, (err) => {
     if (err) {
       res.status(404).end();
