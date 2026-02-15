@@ -300,6 +300,16 @@ app.use('/submit', express.static(path.join(__dirname, '../client/mobile'), {
   setHeaders: (res) => res.set('Cache-Control', 'no-store'),
 }));
 
+// Serve favicon directly if present in client/ (keeps root simple)
+app.get('/favicon.ico', (req, res) => {
+  const ico = path.join(__dirname, '../client/favicon.ico');
+  res.sendFile(ico, (err) => {
+    if (err) {
+      res.status(404).end();
+    }
+  });
+});
+
 // Serve big screen page directly (no cache to ensure sync code is always present)
 app.get('/', (req, res) => {
   res.set('Cache-Control', 'no-store');
