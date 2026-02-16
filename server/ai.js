@@ -54,6 +54,9 @@ Please modify the code to satisfy the user's request. Output ONLY the valid exec
     },
   ];
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -69,7 +72,10 @@ Please modify the code to satisfy the user's request. Output ONLY the valid exec
         top_p: 0.9,
         stream: false
       }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -97,17 +103,23 @@ Please modify the code to satisfy the user's request. Output ONLY the valid exec
  * Strip markdown code fences from AI output
  */
 function stripCodeFences(code) {
-  // Remove ```javascript ... ``` or ``` ... ```
-  const fenceRegex = /^```(?:javascript|js|strudel)?\s*\n?([\s\S]*?)\n?\s*```$/;
+  if (!code) return '';
+  
+  // 1. Try to match standard markdown code blocks
+  // Matches ```javascript ... ``` or ``` ... ``` (multiline)
+  const fenceRegex = /```(?:javascript|js|strudel)?\s*\n?([\s\S]*?)\n?\s*```/;
   const match = code.match(fenceRegex);
-  if (match) return match[1].trim();
+  if (match && match[1]) {
+    return match[1].trim();
+  }
 
-  // Also handle case where there are multiple code blocks — take the first
-  const blockRegex = /```(?:javascript|js|strudel)?\s*\n?([\s\S]*?)\n?\s*```/;
-  const blockMatch = code.match(blockRegex);
-  if (blockMatch) return blockMatch[1].trim();
+  // 2. If no fences, but code starts with "javascript" or similar (sometimes AI forgets the backticks but writes the language name)
+  if (code.startsWith('javascript\n')) {
+    return code.replace(/^javascript\n/, '').trim();
+  }
 
-  return code;
+  // 3. Fallback: return raw code
+  return code.trim();
 }
 
 /**
