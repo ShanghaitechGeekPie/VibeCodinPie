@@ -397,9 +397,16 @@
 
     function connectWS() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // Use standard ports if already on 80/443 or domain, otherwise fallback to 3000
-      const port = (location.port === '80' || location.port === '443' || location.port === '') ? '' : ':3000';
-      const wsHost = location.hostname + port;
+      let wsHost;
+      
+      // If we are on Vite dev server (usually 5173), connect to backend port 3000 explicitly
+      if (location.port === '5173') {
+        wsHost = location.hostname + ':3000';
+      } else {
+        // Otherwise assume we are served by the backend (same origin)
+        wsHost = location.host;
+      }
+
       const wsUrl = `${protocol}//${wsHost}/ws?type=mobile&session=${sessionId}`;
 
       ws = new WebSocket(wsUrl);
@@ -429,6 +436,11 @@
     }
 
     function handleMessage(msg) {
+      // Always reset loading state on response to submission (queued, error, rate_limited)
+      if (['queued', 'error', 'rate_limited'].includes(msg.type)) {
+        setLoading(false);
+      }
+
       switch (msg.type) {
         case 'init':
           queueNum.textContent = msg.queueSize || 0;
@@ -475,11 +487,22 @@
       }
 
       ws.send(JSON.stringify({ type: 'submit_prompt', prompt }));
+      
+      // UX: Clear input immediately but show loading state
       input.value = '';
       charCount.textContent = '0';
-      submitBtn.disabled = true;
-      setTimeout(() => { submitBtn.disabled = false; }, 2000);
+      setLoading(true);
     });
+    
+    function setLoading(isLoading) {
+      if (isLoading) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span class="md-spinner"></span> 提交中…`;
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="material-symbols-rounded">send</span> 提交';
+      }
+    }
 
     // ── Char counter ─────────────────────
     input.addEventListener('input', () => {
