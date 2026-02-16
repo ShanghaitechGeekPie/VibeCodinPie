@@ -32,33 +32,69 @@ const RATE_LIMIT_SECONDS = parseInt(process.env.RATE_LIMIT_SECONDS) || 30;
 // ── State ───────────────────────────────────────────
 let currentCode = INITIAL_PATTERNS[0].code;
 let currentPatternIndex = 0;
+let isPlaying = false;
 const promptQueue = new PromptQueue(parseInt(process.env.MAX_QUEUE_SIZE) || 20);
 const rateLimitMap = new Map(); // sessionId -> lastSubmitTime
 const recentPrompts = []; // last N prompts for display
-let _codeRequestResolve = null; // resolver for pull-based code fetch
+const codeRequests = new Map(); // requestId -> resolve
+
+// ── Rate Limit Cleanup ──────────────────────────────
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, time] of rateLimitMap.entries()) {
+    if (now - time > 3600000) { // Clear after 1 hour
+      rateLimitMap.delete(key);
+    }
+  }
+}, 3600000); // Run every hour
 
 // ── WebSocket Setup ─────────────────────────────────
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 // Track client types
-const screenClients = new Set();
+const masterScreen = { ws: null };
+const viewerScreens = new Set();
 const mobileClients = new Map(); // ws -> sessionId
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const clientType = url.searchParams.get('type') || 'mobile';
   const sessionId = url.searchParams.get('session') || crypto.randomUUID();
+  const authKey = url.searchParams.get('key');
 
   if (clientType === 'screen') {
-    screenClients.add(ws);
-    // Send current state to newly connected screen
-    ws.send(JSON.stringify({
-      type: 'init',
-      code: currentCode,
-      recentPrompts,
-      queueSize: promptQueue.size(),
-    }));
-    console.log('🖥️  Screen client connected');
+    if (authKey === 'geekpie') {
+      // Master Screen
+      if (masterScreen.ws) {
+        console.log('⚠️  Master screen replaced');
+        masterScreen.ws.close();
+      }
+      masterScreen.ws = ws;
+      console.log('🖥️  MASTER Screen connected');
+      
+      // Send current state
+      ws.send(JSON.stringify({
+        type: 'init',
+        role: 'master',
+        code: currentCode,
+        isPlaying,
+        recentPrompts,
+        queueSize: promptQueue.size(),
+      }));
+    } else {
+      // Viewer Screen (Read-only)
+      viewerScreens.add(ws);
+      console.log('👀 Viewer Screen connected');
+      
+      ws.send(JSON.stringify({
+        type: 'init',
+        role: 'viewer',
+        code: currentCode,
+        isPlaying,
+        recentPrompts,
+        queueSize: promptQueue.size(),
+      }));
+    }
   } else {
     mobileClients.set(ws, sessionId);
     ws.send(JSON.stringify({
@@ -79,7 +115,11 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    screenClients.delete(ws);
+    if (masterScreen.ws === ws) {
+      masterScreen.ws = null;
+      console.log('🖥️  MASTER Screen disconnected');
+    }
+    viewerScreens.delete(ws);
     mobileClients.delete(ws);
   });
 });
@@ -89,27 +129,27 @@ wss.on('connection', (ws, req) => {
 // This guarantees we never use stale code regardless of push-sync status.
 function requestCodeFromScreen(timeoutMs = 2000) {
   return new Promise((resolve) => {
-    if (screenClients.size === 0) {
-      console.log('  ⚠️  No screen clients connected — using last known code');
-      resolve(null);
+    if (!masterScreen.ws || masterScreen.ws.readyState !== 1) {
+      console.log('  ⚠️  No MASTER screen connected — using last known code');
+      resolve(currentCode); // Use cached code if master is missing
       return;
     }
+    
+    const requestId = crypto.randomUUID();
+    
     // Set up resolver (first response wins)
-    _codeRequestResolve = (code) => {
-      _codeRequestResolve = null;
-      resolve(code);
-    };
-    // Ask all screens for their current code
-    const msg = JSON.stringify({ type: 'request_code' });
-    for (const ws of screenClients) {
-      if (ws.readyState === 1) ws.send(msg);
-    }
+    codeRequests.set(requestId, resolve);
+
+    // Ask ONLY the Master screen
+    const msg = JSON.stringify({ type: 'request_code', requestId });
+    masterScreen.ws.send(msg);
+    
     // Timeout fallback
     setTimeout(() => {
-      if (_codeRequestResolve) {
-        _codeRequestResolve = null;
-        console.log('  ⚠️  Screen did not respond in time — using last known code');
-        resolve(null);
+      if (codeRequests.has(requestId)) {
+        codeRequests.delete(requestId);
+        console.log('  ⚠️  Master screen did not respond in time — using last known code');
+        resolve(currentCode); // Fallback to cached code
       }
     }, timeoutMs);
   });
@@ -119,10 +159,62 @@ function requestCodeFromScreen(timeoutMs = 2000) {
 async function handleMessage(ws, msg, sessionId) {
   // Screen client syncs its current code
   if (msg.type === 'sync_code') {
-    if (screenClients.has(ws) && typeof msg.code === 'string' && msg.code.trim()) {
+    // Only accept sync from Master
+    if (masterScreen.ws === ws && typeof msg.code === 'string' && msg.code.trim()) {
       currentCode = msg.code;
+      
       // Resolve any pending code request
-      if (_codeRequestResolve) _codeRequestResolve(msg.code);
+      if (msg.requestId && codeRequests.has(msg.requestId)) {
+        const resolve = codeRequests.get(msg.requestId);
+        codeRequests.delete(msg.requestId);
+        resolve(msg.code);
+      }
+      
+      // Broadcast update to Viewers (so they see what Master is doing)
+      const updateMsg = JSON.stringify({
+        type: 'code_update',
+        code: currentCode,
+        prompt: null, // Silent sync
+        sessionId: null,
+      });
+      for (const viewer of viewerScreens) {
+        if (viewer.readyState === 1) viewer.send(updateMsg);
+      }
+    }
+    return;
+  }
+
+  // Sync play/stop state
+  if (msg.type === 'sync_state') {
+    if (masterScreen.ws === ws) {
+      isPlaying = !!msg.playing;
+      
+      // Broadcast to viewers
+      const updateMsg = JSON.stringify({
+        type: 'play_state',
+        playing: isPlaying,
+      });
+      for (const viewer of viewerScreens) {
+        if (viewer.readyState === 1) viewer.send(updateMsg);
+      }
+    }
+    return;
+  }
+
+  // Screen reports runtime error
+  if (msg.type === 'execution_error') {
+    const targetSession = msg.sessionId;
+    if (targetSession) {
+      // Find the mobile client with this session
+      for (const [clientWs, session] of mobileClients) {
+        if (session === targetSession && clientWs.readyState === 1) {
+          clientWs.send(JSON.stringify({
+             type: 'error',
+             message: `代码执行出错: ${msg.message}`
+          }));
+          break;
+        }
+      }
     }
     return;
   }
@@ -190,13 +282,16 @@ async function processNextInQueue() {
         message: '代码生成出了点问题，请换个说法试试',
       }));
     }
-  }
-  processing = false;
-  broadcastQueueUpdate();
+    // Backoff on error to prevent rapid loops
+    await new Promise(r => setTimeout(r, 1000));
+  } finally {
+    processing = false;
+    broadcastQueueUpdate();
 
-  // If more items in queue, continue processing
-  if (promptQueue.size() > 0) {
-    setImmediate(processNextInQueue);
+    // If more items in queue, continue processing
+    if (promptQueue.size() > 0) {
+      setImmediate(processNextInQueue);
+    }
   }
 }
 
@@ -249,6 +344,7 @@ async function processPrompt(item) {
     type: 'code_update',
     code: newCode,
     prompt: item.prompt,
+    sessionId: item.sessionId, // Pass session ID for error tracking
     recentPrompts,
   });
 
@@ -260,14 +356,17 @@ async function processPrompt(item) {
     }));
   }
 
-  console.log(`✅ Code updated successfully`);
+  console.log(`✅ Code updated for prompt: "${item.prompt}"`);
 }
 
 // ── Broadcast helpers ───────────────────────────────
 function broadcastToScreens(msg) {
-  const data = JSON.stringify(msg);
-  for (const ws of screenClients) {
-    if (ws.readyState === 1) ws.send(data);
+  const json = JSON.stringify(msg);
+  if (masterScreen.ws && masterScreen.ws.readyState === 1) {
+    masterScreen.ws.send(json);
+  }
+  for (const ws of viewerScreens) {
+    if (ws.readyState === 1) ws.send(json);
   }
 }
 
@@ -281,7 +380,10 @@ function broadcastQueueUpdate() {
     if (ws.readyState === 1) ws.send(update);
   }
   // Notify screens too
-  for (const ws of screenClients) {
+  if (masterScreen.ws && masterScreen.ws.readyState === 1) {
+    masterScreen.ws.send(update);
+  }
+  for (const ws of viewerScreens) {
     if (ws.readyState === 1) ws.send(update);
   }
 }

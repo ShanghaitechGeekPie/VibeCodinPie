@@ -433,6 +433,23 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .md-divider { width: 100%; height: 1px; background: var(--md-sys-color-outline-variant); }
+
+/* ── Viewer Mode Styles ── */
+    body.mode-viewer #editor-actions,
+    body.mode-viewer #btn-play,
+    body.mode-viewer #btn-stop,
+    body.mode-viewer #sidebar,
+    body.mode-viewer .CodeMirror-cursors {
+      display: none !important;
+    }
+    body.mode-viewer #start-btn {
+      display: flex !important;
+    }
+    body.mode-viewer #title::after {
+      content: " (观众模式)";
+      font-size: 0.8em;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -849,6 +866,7 @@
       } catch (e) {
         console.error('[Strudel] Editor eval error:', e);
         showNotification('❌ ' + e.message);
+        reportErrorToServer(e); // Report back to server -> mobile user
       }
     }
 
@@ -940,6 +958,11 @@
       document.getElementById('status-text').textContent = playing ? '\ud83d\udd0a \u64ad\u653e\u4e2d' : '\u5c31\u7eea';
       document.getElementById('play-dot').classList.toggle('stopped', !playing);
       document.getElementById('code-label-text').textContent = playing ? '\u6b63\u5728\u64ad\u653e' : '\u5f53\u524d\u4ee3\u7801';
+      
+      // Sync state to server if Master
+      if (_isMaster) {
+        syncStateToServer(playing);
+      }
     }
 
     btnPlay.addEventListener('click', () => playCurrentPattern());
@@ -1019,8 +1042,16 @@
     });
 
     function generateQR() {
-      const host = window.location.hostname || 'localhost';
-      const url = `http://${host}:3000/submit`;
+      // Dynamic URL generation
+      let url;
+      if (window.location.port === '5173') {
+         // Vite dev mode: point to the Express server for the mobile client
+         url = `${window.location.protocol}//${window.location.hostname}:3000/submit`;
+      } else {
+         // Production/Express mode: relative to current origin
+         url = `${window.location.origin}/submit`;
+      }
+      
       const qrImg = document.getElementById('qr-img');
       qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}&bgcolor=141218&color=E6E0E9&format=svg`;
       qrImg.style.display = 'block';
@@ -1035,18 +1066,30 @@
       setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3000);
     }
 
-    window.updateStrudelCode = async function(code, name) {
+    window.updateStrudelCode = async function(code, name, shouldPlay = true) {
       if (!strudelReady) return;
       try {
-        _clearInlineWidgets();
-        await safeEvaluate(code);
-        updatePlayState(true);
+        // 1. Always update editor content first
         showCode(code);
-        _insertInlineWidgets(editor);
+        
+        // 2. Only evaluate (play) if shouldPlay is true
+        if (shouldPlay) {
+          _clearInlineWidgets();
+          await safeEvaluate(code);
+          updatePlayState(true);
+          _insertInlineWidgets(editor);
+        } else {
+          // If we shouldn't play, ensure we are stopped
+          if (isPlaying) {
+            stopPlayback();
+          }
+        }
+        
         if (name) showNotification(name);
       } catch(e) {
         console.error('[Strudel] Code eval error:', e);
-        showNotification('\u4ee3\u7801\u6267\u884c\u51fa\u9519');
+        showNotification('❌ 代码执行出错');
+        reportErrorToServer(e); // Report back to server -> mobile user
       }
     };
 
@@ -1060,10 +1103,29 @@
 
     // ── WebSocket Integration ──
     let _ws = null; // global reference for code sync
+    let _lastSessionId = null; // track which user triggered the current code
+    let _isMaster = false; // am I the master screen?
+    let _serverIsPlaying = false; // Track server state
 
     function syncCodeToServer(code) {
-      if (_ws && _ws.readyState === WebSocket.OPEN) {
+      if (_isMaster && _ws && _ws.readyState === WebSocket.OPEN) {
         _ws.send(JSON.stringify({ type: 'sync_code', code }));
+      }
+    }
+
+    function syncStateToServer(playing) {
+      if (_isMaster && _ws && _ws.readyState === WebSocket.OPEN) {
+        _ws.send(JSON.stringify({ type: 'sync_state', playing }));
+      }
+    }
+    
+    function reportErrorToServer(error) {
+      if (_ws && _ws.readyState === WebSocket.OPEN && _lastSessionId) {
+        _ws.send(JSON.stringify({ 
+          type: 'execution_error', 
+          message: error.message || String(error),
+          sessionId: _lastSessionId
+        }));
       }
     }
 
@@ -1071,46 +1133,102 @@
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       // Use standard ports (80/443) when using domain names, fall back to current port if not 80/443
       const port = (window.location.port === '80' || window.location.port === '443' || window.location.port === '') ? '' : ':3000';
-      const wsUrl = `${protocol}//${window.location.hostname}${port}/ws?type=screen`;
+      
+      // Get auth key from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const authKey = urlParams.get('key');
+      
+      const wsUrl = `${protocol}//${window.location.hostname}${port}/ws?type=screen&key=${authKey || ''}`;
       console.log('Connecting to WS:', wsUrl);
       const ws = new WebSocket(wsUrl);
       _ws = ws;
 
       ws.onopen = () => {
-        console.log('🔌 WebSocket connected');
-        showNotification('🔌 服务器已连接');
-        // Sync whatever code the screen is currently showing
-        if (editor) syncCodeToServer(editor.getValue());
+        console.log('WS Connected');
+        showNotification('已连接服务器');
       };
-      
-      ws.onmessage = (event) => {
+
+      ws.onmessage = (e) => {
         try {
-          const msg = JSON.parse(event.data);
+          const msg = JSON.parse(e.data);
           handleWsMessage(msg);
-        } catch(e) { console.error('WS parse error', e); }
+        } catch (err) {
+          console.error(err);
+        }
       };
 
       ws.onclose = () => {
-        console.log('WS disconnected, retrying...');
-        _ws = null;
+        console.log('WS Closed');
+        showNotification('服务器断开连接');
         setTimeout(connectWebSocket, 3000);
       };
     }
 
     function handleWsMessage(msg) {
+      if (msg.type === 'init') {
+        _isMaster = (msg.role === 'master');
+        _serverIsPlaying = !!msg.isPlaying;
+
+        if (_isMaster) {
+           showNotification('👑 主控模式已激活');
+           document.body.classList.add('mode-master');
+           document.body.classList.remove('mode-viewer');
+        } else {
+           showNotification('👀 观众模式 (只读)');
+           document.body.classList.add('mode-viewer');
+           document.body.classList.remove('mode-master');
+           // Set editor to read-only
+           if (editor) editor.setOption('readOnly', true);
+           // Update Start Button for Viewers
+           const btn = document.getElementById('start-btn');
+           if (btn) {
+             btn.innerHTML = '<span class="material-symbols-rounded">visibility</span> 进入观看';
+             // Add a small note about audio sync
+             const sub = document.querySelector('#start-overlay .subtitle');
+             if(sub) sub.textContent = '同步画面与音频需要点击进入';
+           }
+        }
+        
+        if (msg.code) {
+           // Update code, play only if server is playing
+           window.updateStrudelCode(msg.code, '初始化同步', _serverIsPlaying);
+        }
+        if (msg.recentPrompts) updateTicker(msg.recentPrompts);
+      }
+
+      if (msg.type === 'play_state') {
+        _serverIsPlaying = !!msg.playing;
+        if (!_isMaster && strudelReady) {
+          if (_serverIsPlaying) {
+             if (!isPlaying) playCurrentPattern();
+          } else {
+             if (isPlaying) stopPlayback();
+          }
+        }
+      }
+
       if (msg.type === 'request_code') {
-        // Server is about to call AI — send the ACTUAL code from the editor
-        if (_ws && _ws.readyState === WebSocket.OPEN && editor) {
-          _ws.send(JSON.stringify({ type: 'sync_code', code: editor.getValue() }));
+        // Only Master responds to code requests
+        if (_isMaster && _ws && _ws.readyState === WebSocket.OPEN && editor) {
+          _ws.send(JSON.stringify({ 
+            type: 'sync_code', 
+            code: editor.getValue(),
+            requestId: msg.requestId // Echo back the request ID
+          }));
         }
         return;
       }
       if (msg.type === 'code_update') {
         const code = msg.code;
         const prompt = msg.prompt;
-        window.updateStrudelCode(code, `🤖 AI: ${prompt}`);
-        if (msg.recentPrompts) updateTicker(msg.recentPrompts);
-      } else if (msg.type === 'init') {
+        // Update session tracking
+        _lastSessionId = msg.sessionId;
+        
+        // Construct notification message (only if prompt is provided)
+        const notification = prompt ? `🤖 AI: ${prompt}` : null;
+        
+        // Update code, play only if server is playing
+        window.updateStrudelCode(code, notification, _serverIsPlaying);
         if (msg.recentPrompts) updateTicker(msg.recentPrompts);
       }
     }
@@ -1129,6 +1247,35 @@
     // Also reconnect if needed when user starts audio
     document.getElementById('start-btn').addEventListener('click', () => {
       if (!_ws || _ws.readyState !== WebSocket.OPEN) connectWebSocket();
+      
+      // If server is already playing, start playback immediately after init
+      // We check this in a short interval because strudelReady might take a moment after click
+      // But strudelReady is set inside the click handler (see start-btn listener above)
+      // Actually, the click handler above (lines 1000+) sets strudelReady = true.
+      // So we can check immediately if we are after that handler.
+      // However, this listener is added AFTER the first one?
+      // Yes, this script block is at the end of body.
+      // The first listener is inside DOMContentLoaded? No, it's inside init() which is called on load?
+      // Wait, where is the main start-btn listener?
+      // It's in the script block starting at line 984:
+      // document.getElementById('start-btn').addEventListener('click', async () => { ... strudelReady = true ... });
+      
+      // So this listener (line 1206) runs AFTER the main one?
+      // Yes, if added later.
+      // So strudelReady should be true (or Promise pending).
+      // Wait, the main listener is `async`. It awaits `initAudioContext` and `loadSamples`.
+      // So `strudelReady` won't be true immediately.
+      
+      // We need to hook into the completion of the main listener.
+      // Or just poll.
+      const checkReady = setInterval(() => {
+        if (strudelReady) {
+          clearInterval(checkReady);
+          if (!_isMaster && _serverIsPlaying && !isPlaying) {
+             playCurrentPattern();
+          }
+        }
+      }, 100);
     });
   </script>
 </body>

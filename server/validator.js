@@ -119,6 +119,16 @@ export function validateCode(code) {
       ImportExpression() {
         violation = 'Dynamic imports not allowed';
       },
+      // Check loops - limit loop complexity or ban while(true)
+      WhileStatement(node) {
+        // Simple heuristic: ban while(true) or while(1)
+        if (node.test.type === 'Literal' && (node.test.value === true || node.test.value === 1)) {
+          violation = 'Infinite loops (while(true)) are not allowed';
+        }
+      },
+      DoWhileStatement(node) {
+        violation = 'Do-while loops are not allowed';
+      },
       // Check for dangerous member access
       MemberExpression(node) {
         if (node.object.type === 'Identifier' && BANNED_IDENTIFIERS.has(node.object.name)) {
