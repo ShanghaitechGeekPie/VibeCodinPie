@@ -1,0 +1,64 @@
+#!/bin/sh
+# Auto-push to personal fork (origin) and create PR to upstream if possible.
+# Requirements: `origin` points to your personal fork, `upstream` points to team repo,
+# and GitHub CLI `gh` is installed and authenticated.
+
+set -e
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "[hook] post-commit: branch=$BRANCH"
+
+# Push to origin (personal fork)
+if git remote get-url origin >/dev/null 2>&1; then
+  echo "[hook] pushing branch '$BRANCH' to origin..."
+  git push origin "$BRANCH" || {
+    echo "[hook] git push origin failed; aborting PR creation." >&2
+    exit 0
+  }
+else
+  echo "[hook] no 'origin' remote; skipping push.";
+  exit 0
+fi
+
+# If there's no upstream remote, nothing more to do
+if ! git remote get-url upstream >/dev/null 2>&1; then
+  echo "[hook] no 'upstream' remote configured; skipping PR creation.";
+  exit 0
+fi
+
+UP_URL=$(git remote get-url upstream)
+
+# Parse owner/repo from upstream URL (support ssh and https)
+if printf '%s' "$UP_URL" | grep -qE '^git@'; then
+  OWNER_REPO=$(printf '%s' "$UP_URL" | sed -E 's/^git@[^:]+:([^/]+)\/(.+)\.git$/\1\/\2/')
+else
+  OWNER_REPO=$(printf '%s' "$UP_URL" | sed -E 's#https?://[^/]+/([^/]+/[^/]+)(\.git)?#\1#')
+fi
+
+if [ -z "$OWNER_REPO" ]; then
+  echo "[hook] could not parse upstream owner/repo from: $UP_URL" >&2
+  exit 0
+fi
+
+echo "[hook] upstream repo: $OWNER_REPO"
+
+# Require gh CLI for PR creation
+if ! command -v gh >/dev/null 2>&1; then
+  echo "[hook] gh CLI not found; install and authenticate 'gh' to enable automatic PR creation.";
+  exit 0
+fi
+
+# Check if an open PR from this branch to upstream already exists
+EXISTING_PR=$(gh pr list --repo "$OWNER_REPO" --head "$BRANCH" --state open --json number --jq '.[].number' 2>/dev/null || true)
+if [ -n "$EXISTING_PR" ]; then
+  echo "[hook] open PR already exists (#$EXISTING_PR) for branch $BRANCH -> $OWNER_REPO";
+  exit 0
+fi
+
+echo "[hook] creating PR to $OWNER_REPO (base: main, head: $BRANCH)..."
+# Use --fill to populate title/body from commits; fall back if creation fails
+if ! gh pr create --repo "$OWNER_REPO" --head "$BRANCH" --base main --fill; then
+  echo "[hook] gh pr create failed; you can run 'gh pr create --repo $OWNER_REPO --head $BRANCH --base main --fill' manually." >&2
+fi
+
+exit 0

@@ -35,58 +35,74 @@ $: s("hh*8").gain(0.6)
 $: note("c3 e3 g3").s("sawtooth")
 \`\`\`
 
-### 常用采样
-bd, sd, hh, oh, cp, rim, tom, cr, ride,
-bass, bass3, piano, pluck, gtr, strings,
-arpy, superpiano, supersquare, supersaw,
-casio, jazz, metal, east, tabla, sitar
+### 常用效果 (Effects)
+- \`.gain(0.8)\` - 音量
+- \`.lpf(800).lpq(5)\` - 低通滤波 & 共振
+- \`.hpf(200)\` - 高通滤波
+- \`.vowel("a e i o")\` - 元音滤波
+- \`.room(0.5).size(0.8)\` - 混响
+- \`.delay(0.5).delaytime(0.25).delayfeedback(0.4)\` - 延迟
+- \`.shape(0.5)\` - 失真/波形塑形
+- \`.chop(8)\` - 切片
+- \`.rev()\` - 反转
 
-### 合成器音色
-sawtooth, square, triangle, sine
+### 变换 (Transformations)
+- \`.fast(2)\` / \`.slow(2)\` - 变速
+- \`.every(4, x => x.rev())\` - 每4个循环反转一次
+- \`.sometimes(x => x.distort(0.2))\` - 随机应用效果
+- \`.jux(x => x.rev())\` - 立体声声道处理
+- \`.euclid(3, 8)\` - 欧几里得节奏
+- \`.scale("C:minor")\` - 音阶量化
 
-### 音符与和弦
-- \`note("c3 e3 g3")\` — 单音
-- \`note("c3,e3,g3")\` — 和弦（同时）
-- \`note("<c3 e3 g3 b3>")\` — 琶音轮替
-- \`.scale("C:minor")\` — 音阶
+### 交互控制 (Interactive Sliders)
+如果用户要求"可控"、"调节"或"滑块"，请使用 \`slider(val)\`：
+- \`slider(0.5)\` - 默认 0-1
+- \`slider(200, 0, 1000)\` - 范围 0-1000
+示例：\`.lpf(slider(400, 100, 2000))\`
 
-### 常用效果
-- \`.gain(0.8)\` — 音量 (0-1)
-- \`.speed(1.5)\` — 播放速度
-- \`.pan(0.5)\` — 声像
-- \`.room(0.5)\` — 混响
-- \`.delay(0.5)\` — 延迟
-- \`.lpf(800)\` — 低通滤波器
-- \`.hpf(200)\` — 高通滤波器
-- \`.vowel("a e i o")\` — 元音滤波
-- \`.crush(4)\` — 位压缩
-- \`.distort(0.3)\` — 失真
-- \`.orbit(0)\` — 效果总线
-- \`.cut(1)\` — 切组（同组互切）
+## 可用采样库 (Samples)
+- **鼓组**: bd, sd, hh, oh, cp, rim, tom, ride, crash, 808bd, 808sd, 808hh
+- **乐器**: piano, bass, bass3, guitar, sax, vibes
+- **合成器**: sawtooth, square, sine, triangle, supersaw
+- **特色库**:
+  - \`casio\` (lo-fi synth)
+  - \`crow\` (crow sounds)
+  - \`insect\` (nature)
+  - \`wind\` (ambient)
+  - \`jazz\` (drums)
+  - \`metal\` (percussion)
+  - \`east\` (oriental percussion)
 
-### 变换
-- \`.fast(2)\` — 加速
-- \`.slow(2)\` — 减速
-- \`.rev()\` — 反转
-- \`.jux(rev)\` — 一侧反转（立体声）
-- \`.every(4, fast(2))\` — 每4循环加速
-- \`.sometimes(x => x.speed(2))\` — 随机变换
-- \`.degrade()\` — 随机丢弃
-- \`.chop(8)\` — 切片
+## 示例 (Few-Shot Examples)
 
-### 可视化（重要！每个声部都要加）
-- \`._pianoroll()\` — 钢琴卷帘
-- \`._pianoroll({labels:1})\` — 带标签的钢琴卷帘
-- \`._scope()\` — 示波器
-- \`._spectrum()\` — 频谱
-- \`._scope({smear:0.8})\` — 带拖尾的示波器
+### 输入 1
+Code: \`$: s("bd sd")._scope()\`
+Prompt: "让节奏快一点，加个贝斯"
 
-### 节奏控制
-- \`setcps(0.5)\` — 设置每秒循环数（BPM ≈ cps × 60 × 4）
+### 输出 1
+$: s("bd sd").fast(1.5)._scope()
+$: s("bass*4").note("0 0 7 5").scale("C:minor").gain(0.7)._pianoroll()
 
-## 风格指南
-- 让代码整洁、易读
-- 合理使用换行和缩进
-- 给每个声部加注释说明（用 // 注释）
-- 保持 2-5 个声部，不要太多也不要太少
-- 注意音量平衡，主音量不要超过 1`;
+### 输入 2
+Code: \`$: s("hh*8")\`
+Prompt: "加一个可以控制频率的低通滤波器"
+
+### 输出 2
+$: s("hh*8").lpf(slider(1000, 100, 5000))._scope()
+
+### 输入 3
+Code: \`$: note("c3")\`
+Prompt: "变成赛博朋克风格"
+
+### 输出 3
+$: note("c3").stack(
+  note("c2").s("sawtooth").lpf(800),
+  s("bd(3,8)"),
+  s("hh*8?").gain(0.5)
+).scale("C:minor").jux(rev).room(0.6).distort(0.2)._pianoroll()
+
+## 最终检查
+1. 是否包含 \`import\` 或 \`window\`? -> **删除**
+2. 每个声部是否有 \`._scope()\` 或 \`._pianoroll()\`? -> **添加**
+3. 是否只有代码? -> **是**
+`;

@@ -101,6 +101,7 @@ wss.on('connection', (ws, req) => {
       type: 'init',
       queueSize: promptQueue.size(),
       position: null,
+      sliders: activeSliders // Send current sliders on connect
     }));
     console.log('📱 Mobile client connected');
   }
@@ -155,8 +156,112 @@ function requestCodeFromScreen(timeoutMs = 2000) {
   });
 }
 
+// ── Slider Control & Aggregation ────────────────────
+let activeSliders = [];
+const sliderForces = new Map(); // SliderID -> Map<SessionID, Force>
+
+// Broadcast slider definitions to all mobile clients
+function broadcastSlidersToMobile() {
+  const msg = JSON.stringify({
+    type: 'available_sliders',
+    sliders: activeSliders
+  });
+  for (const [ws, _] of mobileClients.entries()) {
+    if (ws.readyState === 1) ws.send(msg);
+  }
+}
+
+// Periodic aggregation loop (every 100ms)
+setInterval(() => {
+  if (!activeSliders.length) return;
+  if (!masterScreen.ws || masterScreen.ws.readyState !== 1) return;
+
+  const updates = [];
+  const forceInfos = [];
+
+  for (const slider of activeSliders) {
+    const forcesMap = sliderForces.get(slider.id);
+    if (!forcesMap || forcesMap.size === 0) continue;
+
+    // Calculate net force
+    let netForce = 0;
+    for (const force of forcesMap.values()) {
+      netForce += force;
+    }
+
+    // Clamp net force to [-1, 1] to prevent explosion with many users
+    netForce = Math.max(-1, Math.min(1, netForce));
+
+    forceInfos.push({ id: slider.id, netForce, participants: forcesMap.size });
+
+    if (Math.abs(netForce) > 0.01) {
+      updates.push({ id: slider.id, force: netForce });
+    }
+  }
+
+  if (updates.length > 0) {
+    updates.forEach(u => {
+      masterScreen.ws.send(JSON.stringify({
+        type: 'apply_force',
+        id: u.id,
+        force: u.force
+      }));
+    });
+  }
+
+  // Broadcast force info to mobile clients for visual feedback
+  if (forceInfos.length > 0) {
+    const infoMsg = JSON.stringify({ type: 'force_info', sliders: forceInfos });
+    for (const [ws] of mobileClients.entries()) {
+      if (ws.readyState === 1) ws.send(infoMsg);
+    }
+  }
+}, 100);
+
 // ── Message Handler ─────────────────────────────────
 async function handleMessage(ws, msg, sessionId) {
+  // Mobile: Control Slider Force
+  if (msg.type === 'control_slider') {
+    if (msg.id && typeof msg.force === 'number') {
+      if (!sliderForces.has(msg.id)) {
+        sliderForces.set(msg.id, new Map());
+      }
+      sliderForces.get(msg.id).set(sessionId, msg.force);
+    }
+    return;
+  }
+  
+  // Mobile: Stop Control (when finger lifted or tab switched)
+  if (msg.type === 'stop_control') {
+    if (msg.all) {
+      // Clear all forces for this session across all sliders
+      for (const forcesMap of sliderForces.values()) {
+        forcesMap.delete(sessionId);
+      }
+    } else if (msg.id && sliderForces.has(msg.id)) {
+      sliderForces.get(msg.id).delete(sessionId);
+    }
+    return;
+  }
+
+  // Master: Register Sliders
+  if (msg.type === 'register_sliders') {
+    if (masterScreen.ws === ws && Array.isArray(msg.sliders)) {
+      activeSliders = msg.sliders;
+      console.log(`🎚️  Registered ${activeSliders.length} sliders from Master`);
+      broadcastSlidersToMobile();
+      
+      // Cleanup stale forces for removed sliders
+      const newIds = new Set(activeSliders.map(s => s.id));
+      for (const id of sliderForces.keys()) {
+        if (!newIds.has(id)) {
+          sliderForces.delete(id);
+        }
+      }
+    }
+    return;
+  }
+
   // Screen client syncs its current code
   if (msg.type === 'sync_code') {
     // Only accept sync from Master
@@ -318,21 +423,46 @@ async function processPrompt(item) {
   }
   console.log(`  📝 Code preview: ${codeForAI.substring(0, 60).replace(/\n/g, ' | ')}...`);
 
-  // Generate with retry
-  let newCode = await generateCode(codeForAI, item.prompt);
-  if (!newCode) {
-    console.log('  ⚠️  First attempt failed, retrying...');
-    newCode = await generateCode(codeForAI, item.prompt);
-  }
-  if (!newCode) {
-    throw new Error('AI returned empty code after retry');
+  // Generate with retry loop (handles both empty response and validation errors)
+  let newCode = null;
+  let validationError = null;
+  const MAX_ATTEMPTS = 2;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const currentPrompt = (attempt === 1) 
+      ? item.prompt 
+      : `${item.prompt}\n(IMPORTANT: Previous code was invalid: ${validationError}. Please fix syntax errors.)`;
+
+    if (attempt > 1) {
+      console.log(`  🔄 Retry attempt ${attempt}/${MAX_ATTEMPTS} due to: ${validationError}`);
+    }
+
+    try {
+      newCode = await generateCode(codeForAI, currentPrompt);
+    } catch (e) {
+      console.warn(`  ⚠️  AI generation error (attempt ${attempt}):`, e.message);
+      validationError = e.message;
+      continue;
+    }
+
+    if (!newCode) {
+      validationError = "Empty response from AI";
+      continue;
+    }
+
+    // Validate the generated code
+    const validation = validateCode(newCode);
+    if (validation.valid) {
+      validationError = null;
+      break; // Success!
+    } else {
+      validationError = validation.reason;
+      console.warn(`  ⚠️  Validation failed (attempt ${attempt}): ${validationError}`);
+    }
   }
 
-  // Validate the generated code
-  const validation = validateCode(newCode);
-  if (!validation.valid) {
-    console.warn(`⚠️  Code validation failed: ${validation.reason}`);
-    throw new Error(validation.reason);
+  if (validationError) {
+    throw new Error(`Code generation failed after ${MAX_ATTEMPTS} attempts: ${validationError}`);
   }
 
   // Update state
