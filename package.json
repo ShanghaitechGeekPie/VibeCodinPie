@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "npm run dev:server",
+    "dev:full": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "node --watch server/index.js",
     "dev:client": "vite client",
     "build": "vite build client",

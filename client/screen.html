@@ -525,6 +525,68 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
   <script src="https://unpkg.com/@strudel/web@1.3.0"></script>
+  <script>
+    (function() {
+      // 🛠️ Polyfill for Strudel Reactivity
+      // Fixes issue where strudel.ref is missing in some bundles, causing sliders to be non-reactive
+      function polyfillStrudel(s) {
+        if (!s) return;
+        
+        console.log('[Polyfill] Checking Strudel capabilities...');
+        const hasRef = typeof s.ref === 'function';
+        const hasPure = typeof s.pure === 'function';
+        const hasReify = typeof s.reify === 'function';
+        const hasPattern = typeof s.Pattern === 'function';
+        const hasHap = typeof s.Hap === 'function';
+
+        console.log(`[Polyfill] ref:${hasRef} pure:${hasPure} reify:${hasReify} Pattern:${hasPattern} Hap:${hasHap}`);
+
+        // 0. Ensure pure/reify exist if Pattern/Hap are available
+        if (!s.pure && s.Pattern && s.Hap) {
+             console.log('[Polyfill] Polyfilling pure');
+             s.pure = (x) => new s.Pattern((state) => [new s.Hap(state.timespan, x)]);
+        }
+
+        if (!s.reify && s.pure) {
+             console.log('[Polyfill] Polyfilling reify (simple)');
+             s.reify = (x) => (x instanceof s.Pattern ? x : s.pure(x));
+        }
+
+        // 1. Polyfill ref if missing
+        if (!s.ref) {
+           if (s.pure && s.reify) {
+              console.log('[Polyfill] Adding strudel.ref support using pure/reify');
+              s.ref = (accessor) => s.pure(1).withValue(() => s.reify(accessor())).innerJoin();
+           } else {
+              console.warn('[Polyfill] Failed to polyfill ref: missing pure/reify');
+           }
+        }
+        
+        // 2. Ensure registerWidgetType is accessible
+        if (!s.registerWidgetType && s.transpiler && s.transpiler.registerWidgetType) {
+           console.log('[Polyfill] Exposing registerWidgetType');
+           s.registerWidgetType = s.transpiler.registerWidgetType;
+        }
+      }
+
+      // Check immediately
+      if (typeof strudel !== 'undefined') {
+        polyfillStrudel(strudel);
+      } else {
+        // Capture when it loads
+        console.warn('[Polyfill] strudel global not found yet, setting up capture...');
+        Object.defineProperty(window, 'strudel', {
+          configurable: true,
+          enumerable: true,
+          get: function() { return this._strudel; },
+          set: function(v) {
+            this._strudel = v;
+            polyfillStrudel(v);
+          }
+        });
+      }
+    })();
+  </script>
 
   <!-- ═══════════════════════════════════════════════════════════════════
        Strudel Inline Visualization Widgets
@@ -546,10 +608,29 @@
     // ── Register widget types with the transpiler ──
     // This makes the transpiler inject unique IDs as the first argument
     // to ._scope(), ._pianoroll() etc. calls during evaluate().
-    if (typeof registerWidgetType === 'function') {
-      ['_scope','_pianoroll','_punchcard','_spiral','_pitchwheel','_spectrum','_wordfall','slider'].forEach(function(t) {
-        registerWidgetType(t);
-      });
+    // NOTE: We do NOT register 'slider' here because the transpiler has
+    // native handling for slider(...) calls that generates stable range-based IDs.
+    // Registering it here would override that with generic widget handling
+    // that fails to generate IDs (causing sliders to disappear or reset).
+    window.ensureWidgetsRegistered = function() {
+      if (window._widgetsRegistered) return;
+      
+      var registerWidgetType = strudel.registerWidgetType || (strudel.transpiler && strudel.transpiler.registerWidgetType) || window.registerWidgetType;
+      
+      if (typeof registerWidgetType === 'function') {
+        ['_scope','_pianoroll','_punchcard','_spiral','_pitchwheel','_spectrum','_wordfall'].forEach(function(t) {
+          registerWidgetType(t);
+        });
+        console.log('[widget] Registered widget types with transpiler');
+        window._widgetsRegistered = true;
+      } else {
+        console.warn('[widget] registerWidgetType not found on strudel object yet');
+      }
+    };
+
+    // Try to register immediately if possible
+    if (typeof strudel !== 'undefined') {
+       window.ensureWidgetsRegistered();
     }
 
     // ── Inline Widget Canvas System ──
@@ -615,7 +696,7 @@
       wrapper.appendChild(label);
 
       _pendingWidgets.push({ canvas: canvas, wrapper: wrapper, type: type, id: id });
-      return { canvas: canvas, id: id, ctx: canvas.getContext('2d') };
+      return { canvas: canvas, id: id, ctx: canvas.getContext('2d', { willReadFrequently: true }) };
     }
 
     function parseArgs(args) {
@@ -680,43 +761,169 @@
     };
 
     // ── slider / sliderWithID integration ──
-    window._sliderValues = {}; // Persistent slider state
-    window._currentSliders = []; // Sliders present in current code
+    window._sliderValues = {}; 
+    window._sliderMarkers = {}; // Store CM5 TextMarkers
+    window._currentSliders = [];
 
     window.sliderWithID = function(id, value, min, max, step) {
-      // Ensure we have a valid number
       var fallback = parseFloat(value);
       if (isNaN(fallback)) fallback = 0.5;
-
-      if (window._sliderValues[id] === undefined || isNaN(window._sliderValues[id])) {
+      
+      // Initialize if not present, OR if code value differs from stored (Code is source of truth)
+      if (window._sliderValues[id] === undefined || Math.abs(window._sliderValues[id] - fallback) > 1e-9) {
         window._sliderValues[id] = fallback;
       }
+      
+      // Reactive Return for Strudel Pattern (Critical for live updates)
+      if (typeof strudel !== 'undefined') {
+          // Debug available Strudel keys to find ref
+          if (!window._strudelDebugLogged) {
+              console.log('[Sliders] Strudel keys:', Object.keys(strudel));
+              window._strudelDebugLogged = true;
+          }
+
+          if (typeof strudel.ref === 'function') {
+              // console.log('[Sliders] Using strudel.ref for', id);
+              return strudel.ref(() => window._sliderValues[id]);
+          }
+          // Fallback manual ref implementation: pure(1).withValue(() => reify(val)).innerJoin()
+          if (typeof strudel.pure === 'function' && typeof strudel.reify === 'function') {
+               console.log('[Sliders] Using manual ref implementation for', id);
+               return strudel.pure(1).withValue(() => strudel.reify(window._sliderValues[id])).innerJoin();
+          }
+          console.warn('[Sliders] strudel.ref/pure not found, returning static value. Keys:', Object.keys(strudel));
+      } else {
+          console.warn('[Sliders] strudel global not found, returning static value');
+      }
+      
       return window._sliderValues[id];
     };
+    
     // Passthrough for untranspiled slider calls
     window.slider = function(v, min, max, step) {
       var val = parseFloat(v);
-      return isNaN(val) ? 0.5 : val;
+      if (isNaN(val)) val = 0.5;
+      
+      // If used without ID (untranspiled), we can't sync properly, 
+      // but we should still try to return a reactive value if possible, 
+      // though we don't have a stable ID to track it.
+      // Ideally, code should be transpiled.
+      return val;
     };
 
     window._renderSliders = function(widgets) {
       var container = document.getElementById('slider-container');
       if (!container) return;
       
-      var sliders = (widgets || []).filter(function(w) { return w.type === 'slider'; });
-      window._currentSliders = sliders;
+      var sliders = (widgets || [])
+        .filter(function(w) { return w && w.type === 'slider'; })
+        .map(function(s, idx) {
+          // Fix for Strudel v1.3.0+: Transpiler emits widgets with 'from'/'to' but missing 'id'.
+          // We reconstruct the stable range-based ID here to ensure state persistence.
+          // IMPORTANT: We use ONLY 'from' as ID because 'to' changes when the value length changes (e.g. 5.5 -> 5.67).
+          // Using 'from:to' would cause the ID to change during drag, breaking state and markers.
+          if (!s.id && typeof s.from === 'number') {
+            s.id = 'loc_' + s.from;
+          }
+          
+          // Fallback for widgets without location (should not happen for valid sliders)
+          if (!s.id) {
+            console.warn('[Sliders] Widget missing ID and location, using unstable index fallback:', s);
+            s.id = 'slider_' + idx;
+          }
+          return s;
+        });
       
-      if (sliders.length === 0) {
+      window._currentSliders = sliders;
+      // console.log('[Sliders] Rendering ' + sliders.length + ' sliders');
+      
+      if (sliders.length > 0) {
+        container.style.display = 'flex';
+      } else {
         container.style.display = 'none';
         container.innerHTML = '';
         return;
       }
+
+      // Diffing strategy to preserve focus
+      var existingRows = Array.from(container.children);
+      var newIds = new Set(sliders.map(function(s) { return s.id; }));
       
-      console.log('[Sliders] Rendering', sliders.length, 'sliders');
-      container.style.display = 'flex';
-      container.innerHTML = ''; 
+      // Remove stale
+      existingRows.forEach(function(row) {
+        var input = row.querySelector('.slider-input');
+        if (input && !newIds.has(input.dataset.id)) {
+          row.remove();
+        }
+      });
+      
+      // Clear markers map for rebuild? No, keep valid ones.
+      // window._sliderMarkers = {}; // Don't clear all, just stale.
+      
+      // Sync slider definitions to server (for mobile control)
+      if (_isMaster && typeof syncSliderDefinitions === 'function') {
+        syncSliderDefinitions(sliders.map(function(s) {
+          return {
+            id: s.id,
+            name: s.name || 'Slider ' + (s.id && s.id.indexOf(':') > -1 ? s.id.split(':').pop() : ''),
+            min: s.min !== undefined ? parseFloat(s.min) : 0,
+            max: s.max !== undefined ? parseFloat(s.max) : 1,
+            step: s.step !== undefined ? parseFloat(s.step) : 0.01,
+            value: window._sliderValues[s.id]
+          };
+        }));
+      }
 
       sliders.forEach(function(s, idx) {
+        // Fallback: parse from/to from ID
+        if ((typeof s.from !== 'number' || typeof s.to !== 'number') && s.id && s.id.indexOf(':') > -1) {
+             var parts = s.id.split(':');
+             s.from = parseInt(parts[0]);
+             s.to = parseInt(parts[1]);
+        }
+
+        // Check if exists
+        var existingInput = container.querySelector('.slider-input[data-id="' + s.id + '"]');
+        
+        var min = s.min !== undefined ? parseFloat(s.min) : 0;
+        var max = s.max !== undefined ? parseFloat(s.max) : 1;
+        var step = s.step !== undefined ? parseFloat(s.step) : 0.01;
+        var def = s.value !== undefined ? parseFloat(s.value) : (min + max) / 2;
+        
+        // Update global value store
+        // If code has explicit value, force sync (Code is source of truth during edits)
+        if (s.value !== undefined) {
+             window._sliderValues[s.id] = parseFloat(s.value);
+        } else if (window._sliderValues[s.id] === undefined) {
+             // If code has no value (e.g. dynamic) and we have no state, use default
+             window._sliderValues[s.id] = def;
+        }
+
+        if (existingInput) {
+            // Update attributes if changed
+            if (existingInput.min != min) existingInput.min = min;
+            if (existingInput.max != max) existingInput.max = max;
+            if (existingInput.step != step) existingInput.step = step;
+            
+            // Don't update value if user is interacting?
+            // If the value comes from code update (not user drag), we should update.
+            // But we can't easily distinguish here.
+            // For now, assume code is source of truth, BUT if we are dragging, we don't want jank.
+            // window._sliderValues is the single source of truth.
+            if (Math.abs(parseFloat(existingInput.value) - window._sliderValues[s.id]) > 1e-9) {
+                 existingInput.value = window._sliderValues[s.id];
+                 if (existingInput.nextElementSibling) {
+                     existingInput.nextElementSibling.textContent = formatValue(parseFloat(existingInput.value), step);
+                 }
+            }
+            
+            // Re-bind marker if needed (position check?)
+            // We assume marker logic is handled elsewhere or stable enough
+            
+            return; // Skip creation
+        }
+
+        // Create New Row
         var row = document.createElement('div');
         row.className = 'slider-row';
         
@@ -727,33 +934,62 @@
         var input = document.createElement('input');
         input.type = 'range';
         input.className = 'slider-input';
+        input.dataset.id = s.id; 
         
-        var min = s.min !== undefined ? parseFloat(s.min) : 0;
-        var max = s.max !== undefined ? parseFloat(s.max) : 1;
-        var step = s.step !== undefined ? parseFloat(s.step) : 0.01;
-        var def = s.value !== undefined ? parseFloat(s.value) : (min + max) / 2;
-
         input.min = min;
         input.max = max;
         input.step = step;
+        input.value = window._sliderValues[s.id];
         
-        // Initial value from code or previous state
-        var currentVal = window._sliderValues[s.id];
-        if (currentVal === undefined || isNaN(currentVal)) {
-          currentVal = def;
+        // Viewer: Disable interaction
+        if (!_isMaster) {
+            input.disabled = true;
+            input.style.cursor = 'not-allowed';
+            input.style.opacity = '0.7';
         }
-        
-        input.value = currentVal;
-        window._sliderValues[s.id] = currentVal; // ensure initialized
         
         var valDisplay = document.createElement('div');
         valDisplay.className = 'slider-value';
-        valDisplay.textContent = parseFloat(input.value).toFixed(2);
+        valDisplay.textContent = formatValue(parseFloat(input.value), step);
+        
+        // Create Marker
+        if (editor && typeof s.from === 'number' && typeof s.to === 'number') {
+             var startPos = editor.posFromIndex(s.from);
+             var endPos = editor.posFromIndex(s.to);
+             
+             var marker = editor.markText(startPos, endPos, { 
+                className: 'cm-slider-value-marker',
+                atomic: false, 
+                clearOnEnter: false,
+                title: 'Slider Value'
+             });
+             window._sliderMarkers[s.id] = marker;
+        }
 
         input.oninput = function() {
           var val = parseFloat(this.value);
           window._sliderValues[s.id] = val;
-          valDisplay.textContent = val.toFixed(2);
+          valDisplay.textContent = formatValue(val, step);
+          
+          if (editor && window._sliderMarkers[s.id]) {
+            updateSliderCode(s.id, val);
+          }
+          
+          // Notify Strudel (and self) of the change
+          // This supports Strudel's internal sliderWithID which listens for 'cm-slider'
+          window.postMessage({ type: 'cm-slider', id: s.id, value: val }, '*');
+          
+          // Sync to server if Master (Real-time)
+          if (typeof syncSliderToServer === 'function') {
+              syncSliderToServer(s.id, val);
+          }
+        };
+
+        // Sync full code on release to ensure persistence
+        input.onchange = function() {
+             if (typeof syncCodeToServer === 'function' && editor) {
+                 syncCodeToServer(editor.getValue());
+             }
         };
 
         row.appendChild(label);
@@ -762,6 +998,84 @@
         container.appendChild(row);
       });
     };
+
+    // Helper to determine decimal places from step
+    function getDecimalPlaces(step) {
+      if (!step) return 2;
+      var str = step.toString();
+      if (str.indexOf('.') > -1) {
+        return str.split('.')[1].length;
+      }
+      return 0;
+    }
+
+    // Helper to format value based on step precision
+    function formatValue(val, step) {
+      var decimals = getDecimalPlaces(step);
+      // parseFloat handles stripping trailing zeros if they are not significant for the number itself,
+      // but toFixed ensures we don't get floating point artifacts like 5.300000001
+      return parseFloat(val.toFixed(decimals));
+    }
+
+    function updateSliderCode(id, newVal) {
+      var marker = window._sliderMarkers[id];
+      if (!marker) return;
+      
+      var pos = marker.find();
+      if (!pos) return;
+      
+      // Get step from the input element to determine formatting
+      var input = document.querySelector('.slider-input[data-id="' + id + '"]');
+      var step = input ? parseFloat(input.step) : 0.01;
+      
+      var formattedVal = formatValue(newVal, step);
+      var valStr = formattedVal.toString();
+      
+      // Prevent infinite loop by checking current content
+      var currentContent = editor.getRange(pos.from, pos.to);
+      if (currentContent === valStr) return;
+      
+      // Replace
+      editor.replaceRange(valStr, pos.from, pos.to, 'slider');
+      
+      // Re-mark the new range
+      var startIndex = editor.indexFromPos(pos.from);
+      var newEndIndex = startIndex + valStr.length;
+      var newEndPos = editor.posFromIndex(newEndIndex);
+      
+      var newMarker = editor.markText(pos.from, newEndPos, {
+        className: 'cm-slider-value-marker',
+        atomic: false,
+        clearOnEnter: false
+      });
+      window._sliderMarkers[id] = newMarker;
+    }
+
+    // ── Window Message Listener for Slider Sync (Official Strudel Parity) ──
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'cm-slider') {
+        var id = e.data.id;
+        var val = e.data.value;
+        if (id && val !== undefined) {
+          // Update internal state
+          window._sliderValues[id] = parseFloat(val);
+          
+          // Update UI Slider if exists
+          var input = document.querySelector('.slider-input[data-id="' + id + '"]');
+          if (input) {
+            input.value = val;
+            if (input.nextElementSibling) {
+              input.nextElementSibling.textContent = parseFloat(val).toFixed(2);
+            }
+          }
+          
+          // Update Code
+          if (editor && window._sliderMarkers[id]) {
+             updateSliderCode(id, parseFloat(val));
+          }
+        }
+      }
+    });
 
     // ── Secure Context Check ──
     if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -824,6 +1138,63 @@
     // ── Fetch Initial State ──
     fetchState();
 
+    // Helper: Debounce function
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+      };
+    }
+
+    function getTranspiler() {
+      if (typeof strudel !== 'undefined') {
+        return strudel.transpiler || strudel.transpile || window.transpiler || window.transpile;
+      }
+      return window.transpiler || window.transpile;
+    }
+
+    // New: Only update sliders from code without running audio
+    window.updateSlidersFromCode = function(code) {
+      const transpileFn = getTranspiler();
+      if (typeof transpileFn === 'function') {
+        try {
+          if (typeof window.ensureWidgetsRegistered === 'function') {
+            window.ensureWidgetsRegistered();
+          }
+          // Use emitWidgets: true to get sliders
+          const result = transpileFn(code, { emitWidgets: true });
+          
+          if (result.widgets && result.widgets.length > 0) {
+              // console.log('[Sliders] Transpiled widgets:', result.widgets.length);
+          }
+          
+          if (typeof window._renderSliders === 'function') {
+            window._renderSliders(result.widgets || result.sliders || []);
+          }
+        } catch (e) {
+          console.warn('[Sliders] Transpile error:', e);
+        }
+      } else {
+        console.warn('[Sliders] Strudel transpiler function not found');
+      }
+    };
+
+    const debouncedUpdateSliders = debounce((code) => {
+       window.updateSlidersFromCode(code);
+    }, 300);
+
+    window.syncSliderDefinitions = debounce(function(defs) {
+      if (!_isMaster) return;
+      if (_ws && _ws.readyState === WebSocket.OPEN) {
+        _ws.send(JSON.stringify({
+          type: 'register_sliders',
+          sliders: defs
+        }));
+      }
+    }, 500);
+
     // ─── CodeMirror Editor ───
     let editor = null;
     function initEditor() {
@@ -841,6 +1212,13 @@
           'Ctrl-Enter': () => runEditorCode(),
           'Cmd-Enter':  () => runEditorCode(),
         },
+      });
+      
+      // Listen for code changes to update UI sliders bi-directionally
+      editor.on('change', (instance, changeObj) => {
+         // If change comes from slider drag, ignore to avoid loop
+         if (changeObj.origin === 'slider') return;
+         debouncedUpdateSliders(instance.getValue());
       });
     }
     initEditor();
@@ -886,14 +1264,22 @@
     }
 
     async function safeEvaluate(code) {
-      const transpileFn = (typeof strudel !== 'undefined') ? (strudel.transpiler || strudel.transpile) : null;
+      const transpileFn = getTranspiler();
+      let codeToRun = code;
       
       // 1. First, transpile just to extract widgets/sliders for our UI
       if (typeof transpileFn === 'function') {
         try {
+          if (typeof window.ensureWidgetsRegistered === 'function') {
+            window.ensureWidgetsRegistered();
+          }
           const result = transpileFn(code, { emitWidgets: true });
           if (typeof window._renderSliders === 'function') {
             window._renderSliders(result.widgets || result.sliders || []);
+          }
+          // Use the transpiled code which has sliderWithID calls
+          if (result.code) {
+             codeToRun = result.code;
           }
         } catch (e) {
           console.warn('[safeEvaluate] Widget extraction failed:', e);
@@ -904,7 +1290,7 @@
       // This handles $: syntax, scheduling, and reactivity properly.
       const evalFn = _evaluate || evaluate || (strudel && strudel.evaluate);
       if (typeof evalFn === 'function') {
-        return await evalFn(code);
+        return await evalFn(codeToRun);
       }
       
       throw new Error('evaluate() not available');
@@ -959,7 +1345,7 @@
       document.getElementById('play-dot').classList.toggle('stopped', !playing);
       document.getElementById('code-label-text').textContent = playing ? '\u6b63\u5728\u64ad\u653e' : '\u5f53\u524d\u4ee3\u7801';
       
-      // Sync state to server if Master
+    // Sync state to server if Master
       if (_isMaster) {
         syncStateToServer(playing);
       }
@@ -1004,10 +1390,31 @@
           prebake: () => Promise.allSettled([
             // Register ZZFX sounds
             typeof registerZZFXSounds === 'function' ? registerZZFXSounds() : Promise.resolve(),
-            // Dirt-Samples
+            // Dirt-Samples - Extended (loading full strudel.json from repo to support non-standard samples like voodoo, wind, etc.)
+            loadSamples('dirt-extended', 'https://raw.githubusercontent.com/tidalcycles/Dirt-Samples/master/strudel.json'),
+            // Standard Dirt-Samples (shorthand)
             loadSamples('dirt', 'github:tidalcycles/dirt-samples'),
             // Piano samples
             loadSamples('piano', `${CDN}/piano.json`, `${CDN}/piano/`, { prebake: false }),
+            // Superpiano samples - with robust fallback to piano
+            loadSamples('superpiano', `${CDN}/superpiano.json`, `${CDN}/superpiano/`, { prebake: false })
+              .then(res => {
+                if (!res) {
+                  console.warn('[Samples] Superpiano failed (not in standard set), falling back to piano samples');
+                  // Fallback: load piano.json, rename key to superpiano, and register
+                  return fetch(`${CDN}/piano.json`)
+                    .then(r => r.json())
+                    .then(data => {
+                      if (data.piano) {
+                        data.superpiano = data.piano;
+                        console.log('[Samples] Registered superpiano using piano samples fallback');
+                        return samples(data, `${CDN}/piano/`);
+                      }
+                    })
+                    .catch(e => console.warn('Fallback failed:', e));
+                }
+                return res;
+              }),
             // VCSL
             loadSamples('vcsl', `${CDN}/vcsl.json`, `${CDN}/VCSL/`, { prebake: false }),
             // Tidal drum machines
@@ -1026,11 +1433,53 @@
             if (typeof aliasBank === 'function') {
               aliasBank(`${CDN}/tidal-drum-machines-alias.json`).catch(e => console.warn('aliasBank failed', e));
             }
+            
+            // ── Register Aliases for Missing Synths ──
+            // Ensures supersquare, supersaw, arpy, etc. have fallbacks
+            try {
+              const registerAlias = (alias, target) => {
+                // Try global scope first
+                let reg = typeof registerSound === 'function' ? registerSound : null;
+                let map = typeof soundMap !== 'undefined' ? soundMap : null;
+                
+                // Try strudel global
+                if (!reg && typeof strudel !== 'undefined') {
+                  reg = strudel.registerSound || (strudel.superdough && strudel.superdough.registerSound);
+                  map = strudel.soundMap || (strudel.superdough && strudel.superdough.soundMap);
+                }
+                
+                if (reg && map) {
+                  // Check if alias already exists to avoid overwriting real implementations (e.g. supersaw)
+                  if (map.get(alias)) {
+                     console.log(`[Alias] ${alias} is already registered. Skipping alias to ${target}.`);
+                     return;
+                  }
+
+                  const targetSound = map.get(target);
+                  if (targetSound) {
+                    reg(alias, targetSound.onTrigger, targetSound.data);
+                    console.log(`[Alias] Registered ${alias} -> ${target}`);
+                  } else {
+                    console.warn(`[Alias] Target ${target} not found for ${alias}`);
+                  }
+                }
+              };
+
+              registerAlias('supersquare', 'square');
+              registerAlias('supersaw', 'sawtooth');
+              registerAlias('arpy', 'triangle'); // Arpy fallback
+            } catch (e) {
+              console.warn('[Alias] Failed to register aliases:', e);
+            }
           }),
         });
         strudelReady = true;
         _hush = window.hush || null;
         _evaluate = window.evaluate || null;
+        
+        // Ensure widgets are registered now that Strudel is fully ready
+        window.ensureWidgetsRegistered();
+        
         console.log('[Strudel] Ready! _hush:', typeof _hush, '_evaluate:', typeof _evaluate);
         document.getElementById('status-text').textContent = '\u2705 \u5c31\u7eea';
         showCode(PATTERNS[0].code);
@@ -1111,6 +1560,12 @@
       if (_isMaster && _ws && _ws.readyState === WebSocket.OPEN) {
         _ws.send(JSON.stringify({ type: 'sync_code', code }));
       }
+    }
+
+    function syncSliderToServer(id, value) {
+        if (_isMaster && _ws && _ws.readyState === WebSocket.OPEN) {
+            _ws.send(JSON.stringify({ type: 'sync_slider', id, value }));
+        }
     }
 
     function syncStateToServer(playing) {
@@ -1213,11 +1668,61 @@
           _ws.send(JSON.stringify({ 
             type: 'sync_code', 
             code: editor.getValue(),
+            playing: isPlaying,
             requestId: msg.requestId // Echo back the request ID
           }));
         }
         return;
       }
+      // Audience Control Force Application (Master Only)
+      if (msg.type === 'apply_force') {
+        const { id, force } = msg;
+        if (_isMaster && id && window._sliderValues[id] !== undefined) {
+          const input = document.querySelector('.slider-input[data-id="' + id + '"]');
+          if (input) {
+             const min = parseFloat(input.min);
+             const max = parseFloat(input.max);
+             const range = max - min;
+             
+             // Apply factor: e.g., max 2% of range per tick
+             const speedFactor = 0.02; 
+             const delta = force * range * speedFactor;
+             
+             let newVal = window._sliderValues[id] + delta;
+             newVal = Math.max(min, Math.min(max, newVal));
+             
+             if (Math.abs(newVal - window._sliderValues[id]) > 1e-5) {
+                window._sliderValues[id] = newVal;
+                input.value = newVal;
+                if (input.nextElementSibling) {
+                    input.nextElementSibling.textContent = newVal.toFixed(2);
+                }
+                
+                if (editor && window._sliderMarkers[id]) {
+                   updateSliderCode(id, newVal);
+                }
+                window.postMessage({ type: 'cm-slider', id: id, value: newVal }, '*');
+                
+                // Broadcast update to Viewers
+                if (typeof syncSliderToServer === 'function') {
+                   syncSliderToServer(id, newVal);
+                }
+             }
+          }
+        }
+      }
+
+      if (msg.type === 'slider_update') {
+          // Received slider update from Master (Viewer only)
+          if (!_isMaster) {
+              const { id, value } = msg;
+              if (id && value !== undefined) {
+                  // Post message to trigger both our listener (UI/Code/State) AND Strudel's internal listener
+                  window.postMessage({ type: 'cm-slider', id, value: parseFloat(value) }, '*');
+              }
+          }
+      }
+      
       if (msg.type === 'code_update') {
         const code = msg.code;
         const prompt = msg.prompt;
