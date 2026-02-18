@@ -86,19 +86,14 @@ wss.on('connection', (ws, req) => {
       viewerScreens.add(ws);
       console.log('👀 Viewer Screen connected');
       
-      // Request fresh code from Master before init
-      // This ensures the new viewer gets the EXACT state of the master,
-      // not just the last thing the server remembered.
-      requestCodeFromScreen(1500).then((freshCode) => {
-        ws.send(JSON.stringify({
-          type: 'init',
-          role: 'viewer',
-          code: freshCode || currentCode,
-          isPlaying,
-          recentPrompts,
-          queueSize: promptQueue.size(),
-        }));
-      });
+      ws.send(JSON.stringify({
+        type: 'init',
+        role: 'viewer',
+        code: currentCode,
+        isPlaying,
+        recentPrompts,
+        queueSize: promptQueue.size(),
+      }));
     }
   } else {
     mobileClients.set(ws, sessionId);
@@ -126,13 +121,6 @@ wss.on('connection', (ws, req) => {
       console.log('🖥️  MASTER Screen disconnected');
     }
     viewerScreens.delete(ws);
-    // Clean up all forces for this session before removing
-    const sid = mobileClients.get(ws);
-    if (sid) {
-      for (const forcesMap of sliderForces.values()) {
-        forcesMap.delete(sid);
-      }
-    }
     mobileClients.delete(ws);
   });
 });
@@ -279,9 +267,6 @@ async function handleMessage(ws, msg, sessionId) {
     // Only accept sync from Master
     if (masterScreen.ws === ws && typeof msg.code === 'string' && msg.code.trim()) {
       currentCode = msg.code;
-      if (typeof msg.playing === 'boolean') {
-        isPlaying = msg.playing;
-      }
       
       // Resolve any pending code request
       if (msg.requestId && codeRequests.has(msg.requestId)) {
@@ -317,31 +302,6 @@ async function handleMessage(ws, msg, sessionId) {
       for (const viewer of viewerScreens) {
         if (viewer.readyState === 1) viewer.send(updateMsg);
       }
-    }
-    return;
-  }
-
-  // Real-time slider sync
-  if (msg.type === 'sync_slider') {
-    if (masterScreen.ws === ws) {
-        // Broadcast slider update to all viewers immediately
-        const updateMsg = JSON.stringify({
-            type: 'slider_update',
-            id: msg.id,
-            value: msg.value
-        });
-        for (const viewer of viewerScreens) {
-            if (viewer.readyState === 1) viewer.send(updateMsg);
-        }
-        // Also broadcast to mobile clients so they see current value
-        const mobileMsg = JSON.stringify({
-            type: 'slider_value_update',
-            id: msg.id,
-            value: msg.value
-        });
-        for (const [mws] of mobileClients.entries()) {
-            if (mws.readyState === 1) mws.send(mobileMsg);
-        }
     }
     return;
   }

@@ -1345,7 +1345,7 @@
       document.getElementById('play-dot').classList.toggle('stopped', !playing);
       document.getElementById('code-label-text').textContent = playing ? '\u6b63\u5728\u64ad\u653e' : '\u5f53\u524d\u4ee3\u7801';
       
-    // Sync state to server if Master
+      // Sync state to server if Master
       if (_isMaster) {
         syncStateToServer(playing);
       }
@@ -1562,12 +1562,6 @@
       }
     }
 
-    function syncSliderToServer(id, value) {
-        if (_isMaster && _ws && _ws.readyState === WebSocket.OPEN) {
-            _ws.send(JSON.stringify({ type: 'sync_slider', id, value }));
-        }
-    }
-
     function syncStateToServer(playing) {
       if (_isMaster && _ws && _ws.readyState === WebSocket.OPEN) {
         _ws.send(JSON.stringify({ type: 'sync_state', playing }));
@@ -1668,7 +1662,6 @@
           _ws.send(JSON.stringify({ 
             type: 'sync_code', 
             code: editor.getValue(),
-            playing: isPlaying,
             requestId: msg.requestId // Echo back the request ID
           }));
         }
