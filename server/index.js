@@ -62,6 +62,12 @@ wss.on('connection', (ws, req) => {
   const sessionId = url.searchParams.get('session') || crypto.randomUUID();
   const authKey = url.searchParams.get('key');
 
+  // Set up ping/pong heartbeat
+  ws.isAlive = true;
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
+
   if (clientType === 'screen') {
     if (authKey === 'geekpie') {
       // Master Screen
@@ -71,7 +77,7 @@ wss.on('connection', (ws, req) => {
       }
       masterScreen.ws = ws;
       console.log('🖥️  MASTER Screen connected');
-      
+
       // Send current state
       ws.send(JSON.stringify({
         type: 'init',
@@ -85,7 +91,7 @@ wss.on('connection', (ws, req) => {
       // Viewer Screen (Read-only)
       viewerScreens.add(ws);
       console.log('👀 Viewer Screen connected');
-      
+
       ws.send(JSON.stringify({
         type: 'init',
         role: 'viewer',
@@ -109,13 +115,24 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
+
+      // Handle pong response from client
+      if (msg.type === 'pong') {
+        ws.isAlive = true;
+        return;
+      }
+
       handleMessage(ws, msg, sessionId);
     } catch (e) {
-      ws.send(JSON.stringify({ type: 'error', message: '无效的消息格式' }));
+      console.error('Message parse error:', e);
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'error', message: '无效的消息格式' }));
+      }
     }
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
+    console.log(`Connection closed: ${clientType} (code: ${code}, reason: ${reason})`);
     if (masterScreen.ws === ws) {
       masterScreen.ws = null;
       console.log('🖥️  MASTER Screen disconnected');
@@ -130,6 +147,28 @@ wss.on('connection', (ws, req) => {
     }
     mobileClients.delete(ws);
   });
+
+  ws.on('error', (error) => {
+    console.error(`WebSocket error (${clientType}):`, error.message);
+  });
+});
+
+// Heartbeat interval - ping all clients every 30 seconds
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      console.log('⚠️  Terminating unresponsive connection');
+      return ws.terminate();
+    }
+
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+// Clean up on server shutdown
+wss.on('close', () => {
+  clearInterval(heartbeatInterval);
 });
 
 // ── Pull-based code fetch ────────────────────────────
@@ -174,7 +213,13 @@ function broadcastSlidersToMobile() {
     sliders: activeSliders
   });
   for (const [ws, _] of mobileClients.entries()) {
-    if (ws.readyState === 1) ws.send(msg);
+    if (ws.readyState === 1) {
+      try {
+        ws.send(msg);
+      } catch (e) {
+        console.error('Failed to broadcast sliders to mobile:', e.message);
+      }
+    }
   }
 }
 
@@ -208,11 +253,15 @@ setInterval(() => {
 
   if (updates.length > 0) {
     updates.forEach(u => {
-      masterScreen.ws.send(JSON.stringify({
-        type: 'apply_force',
-        id: u.id,
-        force: u.force
-      }));
+      try {
+        masterScreen.ws.send(JSON.stringify({
+          type: 'apply_force',
+          id: u.id,
+          force: u.force
+        }));
+      } catch (e) {
+        console.error('Failed to send force update to master:', e.message);
+      }
     });
   }
 
@@ -220,7 +269,13 @@ setInterval(() => {
   if (forceInfos.length > 0) {
     const infoMsg = JSON.stringify({ type: 'force_info', sliders: forceInfos });
     for (const [ws] of mobileClients.entries()) {
-      if (ws.readyState === 1) ws.send(infoMsg);
+      if (ws.readyState === 1) {
+        try {
+          ws.send(infoMsg);
+        } catch (e) {
+          console.error('Failed to send force info to mobile:', e.message);
+        }
+      }
     }
   }
 }, 100);
@@ -525,14 +580,24 @@ async function processPrompt(item) {
   console.log(`✅ Code updated for prompt: "${item.prompt}"`);
 }
 
-// ── Broadcast helpers ───────────────────────────────
+// ── Broadcast helpers with error handling ───────────
 function broadcastToScreens(msg) {
   const json = JSON.stringify(msg);
   if (masterScreen.ws && masterScreen.ws.readyState === 1) {
-    masterScreen.ws.send(json);
+    try {
+      masterScreen.ws.send(json);
+    } catch (e) {
+      console.error('Failed to send to master screen:', e.message);
+    }
   }
   for (const ws of viewerScreens) {
-    if (ws.readyState === 1) ws.send(json);
+    if (ws.readyState === 1) {
+      try {
+        ws.send(json);
+      } catch (e) {
+        console.error('Failed to send to viewer screen:', e.message);
+      }
+    }
   }
 }
 
@@ -543,14 +608,30 @@ function broadcastQueueUpdate() {
   });
   // Notify all mobile clients
   for (const [ws] of mobileClients) {
-    if (ws.readyState === 1) ws.send(update);
+    if (ws.readyState === 1) {
+      try {
+        ws.send(update);
+      } catch (e) {
+        console.error('Failed to send queue update to mobile:', e.message);
+      }
+    }
   }
   // Notify screens too
   if (masterScreen.ws && masterScreen.ws.readyState === 1) {
-    masterScreen.ws.send(update);
+    try {
+      masterScreen.ws.send(update);
+    } catch (e) {
+      console.error('Failed to send queue update to master:', e.message);
+    }
   }
   for (const ws of viewerScreens) {
-    if (ws.readyState === 1) ws.send(update);
+    if (ws.readyState === 1) {
+      try {
+        ws.send(update);
+      } catch (e) {
+        console.error('Failed to send queue update to viewer:', e.message);
+      }
+    }
   }
 }
 

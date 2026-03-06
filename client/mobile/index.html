@@ -501,18 +501,21 @@
       localStorage.setItem('vcp-session', sessionId);
     }
 
-    // ── WebSocket ────────────────────────
+    // ── WebSocket with exponential backoff ────────────────────────
     let ws = null;
     let cooldownTimer = null;
     let activeSliders = [];
     let currentControlId = null;
     let gyroEnabled = false;
     let lastControlSent = 0;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
+    let heartbeatTimer = null;
 
     function connectWS() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       let wsHost;
-      
+
       // If we are on Vite dev server (usually 5173), connect to backend port 3000 explicitly
       if (location.port === '5173') {
         wsHost = location.hostname + ':3000';
@@ -527,12 +530,25 @@
 
       ws.onopen = () => {
         wsDot.classList.remove('disconnected');
+        reconnectAttempts = 0; // Reset backoff on successful connection
         console.log('Connected');
+
+        // Start client-side heartbeat
+        startHeartbeat();
       };
 
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
+
+          // Handle ping from server
+          if (msg.type === 'ping') {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'pong' }));
+            }
+            return;
+          }
+
           handleMessage(msg);
         } catch (err) {
           console.error(err);
@@ -541,12 +557,38 @@
 
       ws.onclose = () => {
         wsDot.classList.add('disconnected');
-        setTimeout(connectWS, 3000);
+        stopHeartbeat();
+
+        // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+        reconnectAttempts++;
+
+        console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})...`);
+
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connectWS, delay);
       };
 
       ws.onerror = () => {
         wsDot.classList.add('disconnected');
       };
+    }
+
+    function startHeartbeat() {
+      stopHeartbeat();
+      // Send ping every 25 seconds (before server's 30s timeout)
+      heartbeatTimer = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 25000);
+    }
+
+    function stopHeartbeat() {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
     }
 
     function handleMessage(msg) {

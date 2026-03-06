@@ -11,7 +11,8 @@
     "dev:client": "vite client",
     "build": "vite build client",
     "start": "NODE_ENV=production node server/index.js",
-    "preview": "vite preview client"
+    "preview": "vite preview client",
+    "test:ws": "node test/ws_stability_test.js"
   },
   "dependencies": {
     "acorn": "^8.14.0",
