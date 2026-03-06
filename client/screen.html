@@ -971,15 +971,15 @@
           var val = parseFloat(this.value);
           window._sliderValues[s.id] = val;
           valDisplay.textContent = formatValue(val, step);
-          
+
           if (editor && window._sliderMarkers[s.id]) {
-            updateSliderCode(s.id, val);
+            window.updateSliderCode(s.id, val);
           }
-          
+
           // Notify Strudel (and self) of the change
           // This supports Strudel's internal sliderWithID which listens for 'cm-slider'
           window.postMessage({ type: 'cm-slider', id: s.id, value: val }, '*');
-          
+
           // Sync to server if Master (Real-time)
           if (typeof syncSliderToServer === 'function') {
               syncSliderToServer(s.id, val);
@@ -1018,39 +1018,39 @@
       return parseFloat(val.toFixed(decimals));
     }
 
-    function updateSliderCode(id, newVal) {
+    window.updateSliderCode = function(id, newVal) {
       var marker = window._sliderMarkers[id];
       if (!marker) return;
-      
+
       var pos = marker.find();
       if (!pos) return;
-      
+
       // Get step from the input element to determine formatting
       var input = document.querySelector('.slider-input[data-id="' + id + '"]');
       var step = input ? parseFloat(input.step) : 0.01;
-      
+
       var formattedVal = formatValue(newVal, step);
       var valStr = formattedVal.toString();
-      
+
       // Prevent infinite loop by checking current content
       var currentContent = editor.getRange(pos.from, pos.to);
       if (currentContent === valStr) return;
-      
+
       // Replace
       editor.replaceRange(valStr, pos.from, pos.to, 'slider');
-      
+
       // Re-mark the new range
       var startIndex = editor.indexFromPos(pos.from);
       var newEndIndex = startIndex + valStr.length;
       var newEndPos = editor.posFromIndex(newEndIndex);
-      
+
       var newMarker = editor.markText(pos.from, newEndPos, {
         className: 'cm-slider-value-marker',
         atomic: false,
         clearOnEnter: false
       });
       window._sliderMarkers[id] = newMarker;
-    }
+    };
 
     // ── Window Message Listener for Slider Sync (Official Strudel Parity) ──
     window.addEventListener('message', function(e) {
@@ -1072,7 +1072,7 @@
           
           // Update Code
           if (editor && window._sliderMarkers[id]) {
-             updateSliderCode(id, parseFloat(val));
+             window.updateSliderCode(id, parseFloat(val));
           }
         }
       }
@@ -1716,7 +1716,7 @@
                 }
                 
                 if (editor && window._sliderMarkers[id]) {
-                   updateSliderCode(id, newVal);
+                   window.updateSliderCode(id, newVal);
                 }
                 window.postMessage({ type: 'cm-slider', id: id, value: newVal }, '*');
                 
