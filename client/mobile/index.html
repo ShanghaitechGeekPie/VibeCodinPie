@@ -444,7 +444,7 @@
       <div id="no-sliders" class="no-sliders-msg">
         当前没有可控制的滑块<br>请等待 Master 创建
       </div>
-      <button id="gyro-perm-btn" class="md-filled-btn" style="display:none; width:auto; padding:0 32px;">
+      <button id="gyro-toggle-btn" class="md-filled-btn" style="display:none; width:auto; padding:0 32px;">
         <span class="material-symbols-rounded">screen_rotation</span>
         启用体感控制
       </button>
@@ -478,7 +478,7 @@
     const sliderSection = document.getElementById('slider-section');
     const sliderCardsContainer = document.getElementById('slider-cards');
     const noSlidersMsg = document.getElementById('no-sliders');
-    const gyroPermBtn = document.getElementById('gyro-perm-btn');
+    const gyroToggleBtn = document.getElementById('gyro-toggle-btn');
 
     // ── Session ──────────────────────────
     function escapeHtml(str) {
@@ -651,6 +651,7 @@
 
     // ── Slider Control ────────────────────
     function updateSliders() {
+      cleanupSliders(); // Clean up old event listeners first
       sliderCardsContainer.innerHTML = '';
       if (!activeSliders.length) {
         sliderSection.classList.remove('has-sliders');
@@ -682,44 +683,79 @@
         // Touch control on the touch area
         const touchArea = card.querySelector('.touch-control-area');
         let startX = 0;
-        touchArea.addEventListener('touchstart', (e) => {
+        let isActive = false;
+
+        const handleTouchStart = (e) => {
+          isActive = true;
           startX = e.touches[0].clientX;
           currentControlId = s.id;
           focusSlider(s.id);
-        });
-        touchArea.addEventListener('touchmove', (e) => {
+        };
+
+        const handleTouchMove = (e) => {
+          if (!isActive) return;
           e.preventDefault();
           const dx = e.touches[0].clientX - startX;
           const force = Math.max(-1, Math.min(1, dx / 100));
           updateForceVisuals(card, force);
           sendControlForce(force);
-        });
-        touchArea.addEventListener('touchend', () => {
+        };
+
+        const handleTouchEnd = () => {
+          if (!isActive) return;
+          isActive = false;
           updateForceVisuals(card, 0);
           sendControlForce(0);
-        });
+        };
+
+        touchArea.addEventListener('touchstart', handleTouchStart);
+        touchArea.addEventListener('touchmove', handleTouchMove);
+        touchArea.addEventListener('touchend', handleTouchEnd);
+        touchArea.addEventListener('touchcancel', handleTouchEnd); // Handle when touch is interrupted
 
         // Mouse drag control (for desktop)
         let mouseDown = false;
-        touchArea.addEventListener('mousedown', (e) => {
+        const handleMouseDown = (e) => {
           mouseDown = true;
           startX = e.clientX;
           currentControlId = s.id;
           focusSlider(s.id);
-        });
-        window.addEventListener('mousemove', (e) => {
+        };
+
+        const handleMouseMove = (e) => {
           if (!mouseDown || currentControlId !== s.id) return;
           const dx = e.clientX - startX;
           const force = Math.max(-1, Math.min(1, dx / 100));
           updateForceVisuals(card, force);
           sendControlForce(force);
-        });
-        window.addEventListener('mouseup', () => {
-          if (!mouseDown || currentControlId !== s.id) return;
+        };
+
+        const handleMouseUp = () => {
+          if (!mouseDown) return;
+          if (currentControlId === s.id) {
+            const activeCard = document.querySelector(`.slider-card[data-id="${CSS.escape(s.id)}"]`);
+            if (activeCard) {
+              updateForceVisuals(activeCard, 0);
+            }
+            sendControlForce(0);
+          }
           mouseDown = false;
-          updateForceVisuals(card, 0);
-          sendControlForce(0);
-        });
+        };
+
+        touchArea.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        // Store cleanup function for this card
+        card._cleanup = () => {
+          touchArea.removeEventListener('touchstart', handleTouchStart);
+          touchArea.removeEventListener('touchmove', handleTouchMove);
+          touchArea.removeEventListener('touchend', handleTouchEnd);
+          touchArea.removeEventListener('touchcancel', handleTouchEnd);
+          touchArea.removeEventListener('mousedown', handleMouseDown);
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+        };
 
         sliderCardsContainer.appendChild(card);
       });
@@ -729,6 +765,15 @@
       if (activeSliders.length > 0 && !currentControlId) {
         focusSlider(activeSliders[0].id);
       }
+    }
+
+    function cleanupSliders() {
+      // Clean up old event listeners before re-rendering
+      document.querySelectorAll('.slider-card').forEach(card => {
+        if (card._cleanup) {
+          card._cleanup();
+        }
+      });
     }
 
     function updateSliderValue(id, value) {
@@ -810,19 +855,29 @@
     // ── Gyro Control ──────────────────────
     function checkGyroPermission() {
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        gyroPermBtn.style.display = 'inline-flex';
-        gyroPermBtn.onclick = () => {
-          DeviceOrientationEvent.requestPermission()
-            .then(response => {
-              if (response === 'granted') {
-                enableGyro();
-                gyroPermBtn.style.display = 'none';
-              }
-            })
-            .catch(console.error);
+        gyroToggleBtn.style.display = 'inline-flex';
+        gyroToggleBtn.onclick = () => {
+          if (gyroEnabled) {
+            disableGyro();
+          } else {
+            DeviceOrientationEvent.requestPermission()
+              .then(response => {
+                if (response === 'granted') {
+                  enableGyro();
+                }
+              })
+              .catch(console.error);
+          }
         };
       } else {
-        enableGyro();
+        gyroToggleBtn.style.display = 'inline-flex';
+        gyroToggleBtn.onclick = () => {
+          if (gyroEnabled) {
+            disableGyro();
+          } else {
+            enableGyro();
+          }
+        };
       }
     }
 
@@ -830,6 +885,20 @@
       if (gyroEnabled) return;
       gyroEnabled = true;
       window.addEventListener('deviceorientation', handleOrientation);
+      gyroToggleBtn.innerHTML = '<span class="material-symbols-rounded">screen_rotation</span> 关闭体感控制';
+      gyroToggleBtn.style.background = 'var(--md-sys-color-tertiary-container)';
+      gyroToggleBtn.style.color = 'var(--md-sys-color-on-tertiary-container)';
+    }
+
+    function disableGyro() {
+      if (!gyroEnabled) return;
+      gyroEnabled = false;
+      window.removeEventListener('deviceorientation', handleOrientation);
+      gyroToggleBtn.innerHTML = '<span class="material-symbols-rounded">screen_rotation</span> 启用体感控制';
+      gyroToggleBtn.style.background = '';
+      gyroToggleBtn.style.color = '';
+      // Stop any active control
+      stopControl();
     }
 
     function handleOrientation(event) {
