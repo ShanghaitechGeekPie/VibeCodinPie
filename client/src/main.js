@@ -187,7 +187,11 @@ function setStatus(state, text) {
   statusText.textContent = text;
 }
 
-// ── WebSocket ───────────────────────────────────────
+// ── WebSocket with exponential backoff ─────────────
+let reconnectAttempts = 0;
+let reconnectTimer = null;
+let heartbeatTimer = null;
+
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}/ws?type=screen`;
@@ -197,28 +201,66 @@ function connectWebSocket() {
   ws.onopen = () => {
     setStatus('connected', '已连接');
     generateQR();
+    reconnectAttempts = 0; // Reset backoff on successful connection
     console.log('🔌 WebSocket connected');
+
+    // Start client-side heartbeat
+    startHeartbeat();
   };
 
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
+
+      // Handle ping from server
+      if (msg.type === 'ping') {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
+        return;
+      }
+
       handleWsMessage(msg);
     } catch (e) {
       console.error('WS message parse error:', e);
     }
   };
 
-  ws.onclose = () => {
+  ws.onclose = (event) => {
     setStatus('disconnected', '断开连接');
-    // Reconnect after 3 seconds
-    setTimeout(connectWebSocket, 3000);
+    stopHeartbeat();
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+    reconnectAttempts++;
+
+    console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts})...`);
+
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connectWebSocket, delay);
   };
 
   ws.onerror = (err) => {
     setStatus('error', '连接错误');
     console.error('WS error:', err);
   };
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+  // Send ping every 25 seconds (before server's 30s timeout)
+  heartbeatTimer = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 25000);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
 }
 
 function handleWsMessage(msg) {
