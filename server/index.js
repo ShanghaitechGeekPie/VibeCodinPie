@@ -643,6 +643,9 @@ function addRecentPrompt(prompt) {
 // ── Express Routes ──────────────────────────────────
 app.use(express.json());
 
+// Serve client source files directly (like strudel.web.js)
+app.use('/src', express.static(path.join(__dirname, '../client/src')));
+
 // Serve mobile audience page (no cache to ensure latest)
 app.use('/submit', express.static(path.join(__dirname, '../client/mobile'), {
   etag: false, maxAge: 0,
