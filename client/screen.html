@@ -1663,8 +1663,18 @@
         }
         
         if (msg.code) {
-           // Update code, play only if server is playing
-           window.updateStrudelCode(msg.code, '初始化同步', _serverIsPlaying);
+           // Only update code if it's different from current editor content
+           // This prevents resetting slider values on reconnect
+           const currentCode = editor ? editor.getValue() : '';
+           if (currentCode !== msg.code) {
+             // Update code, play only if server is playing
+             window.updateStrudelCode(msg.code, '初始化同步', _serverIsPlaying);
+           } else {
+             // Code is the same, just update sliders from current code without re-evaluating
+             if (typeof window.updateSlidersFromCode === 'function') {
+               window.updateSlidersFromCode(msg.code);
+             }
+           }
         }
         if (msg.recentPrompts) updateTicker(msg.recentPrompts);
       }
