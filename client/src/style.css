@@ -211,18 +211,20 @@ html, body {
 
 /* ── Prompt Ticker ─────────────────────────────── */
 #prompt-ticker {
-  padding: 12px 32px;
+  padding: 12px 0;
   background: rgba(10, 10, 26, 0.6);
   backdrop-filter: blur(10px);
   border-top: 1px solid rgba(100, 100, 255, 0.15);
   overflow: hidden;
-  white-space: nowrap;
+  position: relative;
 }
 
 #prompt-ticker-inner {
-  display: inline-flex;
+  display: flex;
+  width: max-content;
   gap: 40px;
-  animation: ticker-scroll 20s linear infinite;
+  animation: ticker-scroll 30s linear infinite;
+  padding-left: 100%; /* Start the content from the right edge of the viewport */
 }
 
 .ticker-item {
@@ -232,10 +234,13 @@ html, body {
   background: rgba(100, 100, 255, 0.08);
   border-radius: 20px;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 @keyframes ticker-scroll {
-  0% { transform: translateX(100vw); }
+  /* 0%: translateX(0) means "start at the container width + 100% padding" */
+  0% { transform: translateX(0); }
+  /* 100%: translateX(-100%) means "move left until the end of content + padding" */
   100% { transform: translateX(-100%); }
 }
 

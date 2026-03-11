@@ -103,6 +103,9 @@ Please modify the code to satisfy the user's request. Output ONLY the valid exec
     return code;
   } catch (error) {
     console.error('🔴 AI generation error:', error.message);
+    if (error.cause) {
+      console.error('   ↳ Cause:', error.cause);
+    }
     return null;
   }
 }

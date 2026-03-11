@@ -167,5 +167,32 @@ export function validateCode(code) {
     return { valid: false, reason: violation };
   }
 
+  // ==== DOMAIN-SPECIFIC STRUCTURAL VIBECODINPIE CONSTRAINTS ====
+  
+  // 1. Must keep setcpm
+  if (!code.match(/setcpm\(/)) {
+    return { valid: false, reason: 'Missing setcpm() directive. The code must retain the base tempo.' };
+  }
+
+  // 2. Must NOT contain slider() EXCEPT for the predefined one
+  const sliderMatches = [...code.matchAll(/slider\(/g)];
+  if (sliderMatches.length > 1) {
+    return { valid: false, reason: `Generated ${sliderMatches.length} sliders. Only 1 allowed.` };
+  } else if (sliderMatches.length === 1) {
+    if (!code.includes("let filter_cutoff = slider(4.848,0,8)")) {
+        return { valid: false, reason: 'Modified the base filter_cutoff slider unexpectedly!' };
+    }
+  } else {
+    return { valid: false, reason: 'Lost the predefined filter_cutoff slider completely!' };
+  }
+
+  // 3. Must not lose the primary kick drum $kick: (or whatever core track we decide)
+  // Although maybe they legitimately want to remove $kick?
+  // User says: "我接受多余的旋律或鼓点，但是原来有的东西一定需要有"
+  // So let's ensure kick is there.
+  if (!code.includes('$kick:')) {
+    return { valid: false, reason: 'Lost the base $kick track.' };
+  }
+
   return { valid: true };
 }

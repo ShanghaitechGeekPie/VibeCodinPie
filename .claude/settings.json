@@ -16,7 +16,8 @@
       "Bash(node -e:*)",
       "Bash(node /tmp/slider_test.mjs)",
       "Bash(node slider_e2e_test.mjs)",
-      "Bash(node server/index.js)"
+      "Bash(node server/index.js)",
+      "Bash(npm start:*)"
     ],
     "additionalDirectories": [
       "/tmp"

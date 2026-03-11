@@ -396,7 +396,7 @@
       display: flex; align-items: center;
       box-shadow: 0 -1px 0 0 var(--md-sys-color-surface-container-highest);
     }
-    #ticker-inner { display: inline-flex; gap: 24px; animation: ticker-scroll 30s linear infinite; }
+    #ticker-inner { display: inline-flex; gap: 24px; animation: ticker-scroll 30s linear infinite; white-space: nowrap; padding-right: 100vw; }
     .ticker-item {
       font-family: var(--md-sys-typescale-label-font);
       font-size: 12px; font-weight: 500;
@@ -407,7 +407,7 @@
       border-radius: var(--md-sys-shape-corner-small);
       flex-shrink: 0;
     }
-    @keyframes ticker-scroll { 0% { transform: translateX(80vw); } 100% { transform: translateX(-100%); } }
+    @keyframes ticker-scroll { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
     .notification {
       position: fixed; bottom: 72px; left: 50%;
       transform: translateX(-50%) translateY(16px);
@@ -1221,6 +1221,48 @@
          if (changeObj.origin === 'slider') return;
          debouncedUpdateSliders(instance.getValue());
       });
+
+      // ── Auto Scroll Logic ──
+      let isManualScroll = false;
+      let manualScrollTimer = null;
+      const markManual = () => {
+        isManualScroll = true;
+        clearTimeout(manualScrollTimer);
+        manualScrollTimer = setTimeout(() => { isManualScroll = false; }, 3000); // 3 秒不碰恢复自动滚动
+      };
+
+      const wrapper = editor.getWrapperElement();
+      wrapper.addEventListener('wheel', markManual, {passive: true});
+      wrapper.addEventListener('touchstart', markManual, {passive: true});
+      wrapper.addEventListener('mousedown', markManual, {passive: true});
+
+      let scrollDir = 1;
+      let scrollSpeed = 0.5; // pixel per frame
+      let floatTop = 0;
+      
+      setInterval(() => {
+        if (isManualScroll || !editor) {
+            if (editor) floatTop = editor.getScrollInfo().top;
+            return;
+        }
+        
+        const info = editor.getScrollInfo();
+        if (info.height <= info.clientHeight) {
+            floatTop = 0;
+            return;
+        }
+
+        // Use floatTop for smooth fractional scrolling
+      floatTop += scrollSpeed;
+      
+      // Add a small buffer to pause briefly at the bottom before jumping
+      if (floatTop + info.clientHeight >= info.height + 100) {
+         // Jump back to the top
+         floatTop = 0;
+      }
+
+      editor.scrollTo(info.left, floatTop);
+      }, 30);
     }
     initEditor();
 

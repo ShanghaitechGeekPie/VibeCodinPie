@@ -55,7 +55,7 @@ export const BLOCKS = {
     category: 'hihat',
     intensity: 1,
     tags: ['house', 'trance'],
-    code: `$hh: s("hh:1!4")
+    code: `$chh: s("hh:1!4")
   .velocity(".2 .3 .8 .7")
   .gain(1.2).fast(4)
 ._punchcard()`,
@@ -83,7 +83,7 @@ export const BLOCKS = {
     category: 'hihat',
     intensity: 1,
     tags: ['house', 'trance'],
-    code: `$oh: s("oh:2!4")
+    code: `$ohh: s("oh:2!4")
   .velocity("0 0 1 0")
   .fast(4).decay(.3).gain(1.2)
 ._punchcard()`,
@@ -128,7 +128,7 @@ export const BLOCKS = {
     category: 'bass',
     intensity: 1,
     tags: ['trance', 'house'],
-    code: `$bass: note("g1")
+    code: `$subpad: note("g1")
   .s("supersaw").detune(1)
   .rel(0).gain(1.3).lpf(2000)
   .orbit(2)
@@ -151,7 +151,7 @@ export const BLOCKS = {
     needsHelpers: true,
     code: `$bass: n("<0 4 0 9 7>*16").scale("g:minor")
   .octave(3).s("sawtooth")
-  .lpf(100).lpenv(slider(5,0,9)).lps(.2).lpd(.12)
+  .lpf(100).lpenv(filter_cutoff).lps(.2).lpd(.12)
 ._pianoroll()`,
   },
   bass_deep: {
@@ -185,7 +185,7 @@ export const BLOCKS = {
     code: `$lead: note("<g3 d4 <f4 c4 f4 c4 g4 ~>>")
   .s("supersaw").detune(.5).gain(1.2)
   .fast(16)
-  .lpf(200).lpenv(slider(5,0,8)).lpq(12)
+  .lpf(200).lpenv(filter_cutoff).lpq(12)
   .release(.04).hpf(300)
   .delay(.5).room(.4).roomsize(3)
   .orbit(2)
@@ -210,7 +210,7 @@ export const BLOCKS = {
     code: `$lead: n("<3@3 4 5@3 6>*2".add("-14,-21"))
   .s("supersaw").scale("g:minor")
   .seg(16).orbit(2)
-  .rlpf(slider(0.5,0,1)).lpenv(2)
+  .rlpf(filter_cutoff).lpenv(2)
   .gain(1.4)
 ._pianoroll()`,
   },
@@ -221,7 +221,7 @@ export const BLOCKS = {
     code: `$lead: n("0 2 4 <7 5> 4 2 0 <-2 -3>")
   .scale("G:minor").s("supersaw").detune(0.4)
   .fast(4).gain(0.9)
-  .lpf(slider(3000,200,6000)).lpq(4)
+  .lpf(filter_cutoff.mul(750)).lpq(4)
   .delay(0.3).room(0.3)
   .orbit(2)
 ._pianoroll()`,
@@ -275,7 +275,7 @@ export const BLOCKS = {
   .s("supersaw").scale("g:minor")
   .trancegate(1.5,45,2)
   .orbit(3).delay(0.4).pan(rand)
-  .rlpf(slider(0.9,0,1)).lpenv(2)
+  .rlpf(filter_cutoff).lpenv(2)
 ._pianoroll()`,
     needsHelpers: true,
   },
