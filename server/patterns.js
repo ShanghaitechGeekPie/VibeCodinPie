@@ -12,7 +12,7 @@ export const INITIAL_PATTERNS = [
 let filter_cutoff = slider(4.848,0,8)
 
 $kick: s("bd:1!4")
-  .duck("2:3:4").duckattack(.2).duckdepth(.8)
+  .duck("2").duckattack(.2).duckdepth(.8)
 ._scope()`,
   },
   {

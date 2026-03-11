@@ -1253,17 +1253,15 @@
         }
 
         // Use floatTop for smooth fractional scrolling
-        floatTop += (scrollDir * scrollSpeed);
-        
-        if (floatTop + info.clientHeight >= info.height) {
-           scrollDir = -1;
-           floatTop = info.height - info.clientHeight;
-        } else if (floatTop <= 0) {
-           scrollDir = 1;
-           floatTop = 0;
-        }
+      floatTop += scrollSpeed;
+      
+      // Add a small buffer to pause briefly at the bottom before jumping
+      if (floatTop + info.clientHeight >= info.height + 100) {
+         // Jump back to the top
+         floatTop = 0;
+      }
 
-        editor.scrollTo(info.left, floatTop);
+      editor.scrollTo(info.left, floatTop);
       }, 30);
     }
     initEditor();
