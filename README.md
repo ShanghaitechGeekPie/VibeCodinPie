@@ -2,6 +2,11 @@
 
 **AI 驱动的互动 Live Coding 音乐演出系统**
 
+<div style="display:flex; gap:10px; align-items:flex-start;">
+  <img src="https://github.com/user-attachments/assets/02501331-6785-4efa-b5ff-39a2e8c103e4" height="300">
+  <img src="https://github.com/user-attachments/assets/e7ecf2da-d681-4d4f-ae6e-e5f2c8bb2ef4" height="300">
+  <img src="https://github.com/user-attachments/assets/8ed60500-feda-43db-9ae7-9970b3ca9858" height="300">
+</p>
 
 > GeekPie × Pi Day 2026 · ShanghaiTech University
 
