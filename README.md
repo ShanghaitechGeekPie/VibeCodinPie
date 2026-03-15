@@ -1,11 +1,6 @@
 # 🥧 Vibe Cod'in Pie
 
 **AI 驱动的互动 Live Coding 音乐演出系统**
-<div style="display: flex; gap: 10px;">
-  <img src="https://github.com/user-attachments/assets/a9447c73-e32b-4f31-a047-6b1dc2cbb2dd" height="400"/>
-  <img src="https://github.com/user-attachments/assets/4cf7ecea-da9e-4268-8c1b-58c607c2a669" height="400"/>
-</div>
-
 
 
 > GeekPie × Pi Day 2026 · ShanghaiTech University
